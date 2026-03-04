@@ -12,12 +12,15 @@ class VimQuest {
         // Game state
         this.player = { x: 1, y: 1 };
         this.currentRoom = 'tutorial';
+        this.currentLevel = 1;
         this.messages = [];
         this.lastBlinkTime = 0;
         this.cursorVisible = true;
+        this.clipboard = ''; // For copy/paste operations
         
         // UI elements
         this.modeDisplay = document.getElementById('mode-display');
+        this.levelDisplay = document.getElementById('level-display');
         this.roomDisplay = document.getElementById('room-display');
         this.hintText = document.getElementById('hint-text');
         this.messageLog = document.querySelector('.message-log');
@@ -28,10 +31,11 @@ class VimQuest {
     }
 
     initializeRoom() {
-        // Tutorial room layout
+        // All game rooms
         this.rooms = {
             tutorial: {
                 name: "Tutorial Chamber",
+                level: 1,
                 width: 32,
                 height: 24,
                 tiles: this.createTutorialRoom(),
@@ -42,7 +46,24 @@ class VimQuest {
                     "Try 'x' to remove the obstacle '#'",
                     "Use 'i' to enter insert mode and collect the gem"
                 ],
-                currentObjective: 0
+                currentObjective: 0,
+                nextRoom: 'advanced'
+            },
+            advanced: {
+                name: "Advanced Chamber",
+                level: 2,
+                width: 32,
+                height: 24,
+                tiles: this.createAdvancedRoom(),
+                objectives: [
+                    "Use 'dd' to delete entire lines",
+                    "Use 'yy' to copy (yank) lines", 
+                    "Use 'p' to paste copied content",
+                    "Use 'u' to undo your actions",
+                    "Solve the text manipulation puzzle"
+                ],
+                currentObjective: 0,
+                nextRoom: null
             }
         };
         
@@ -94,6 +115,52 @@ class VimQuest {
         
         // Add exit
         tiles[20][28] = 'E';
+        
+        return tiles;
+    }
+
+    createAdvancedRoom() {
+        // Create empty grid
+        const tiles = Array(this.gridHeight).fill().map(() => 
+            Array(this.gridWidth).fill(' ')
+        );
+        
+        // Add borders
+        for (let x = 0; x < this.gridWidth; x++) {
+            tiles[0][x] = '═';
+            tiles[this.gridHeight - 1][x] = '═';
+        }
+        for (let y = 0; y < this.gridHeight; y++) {
+            tiles[y][0] = '║';
+            tiles[y][this.gridWidth - 1] = '║';
+        }
+        
+        // Corner pieces
+        tiles[0][0] = '╔';
+        tiles[0][this.gridWidth - 1] = '╗';
+        tiles[this.gridHeight - 1][0] = '╚';
+        tiles[this.gridHeight - 1][this.gridWidth - 1] = '╝';
+        
+        // Advanced puzzle content
+        this.placeText(tiles, 3, 3, "ADVANCED VIM MASTERY");
+        this.placeText(tiles, 5, 3, "Delete these lines:");
+        this.placeText(tiles, 7, 5, "unwanted line 1");
+        this.placeText(tiles, 8, 5, "unwanted line 2");
+        this.placeText(tiles, 9, 5, "unwanted line 3");
+        
+        this.placeText(tiles, 12, 3, "Copy and paste:");
+        this.placeText(tiles, 14, 5, "copy this text");
+        this.placeText(tiles, 16, 5, "paste here: _____");
+        
+        this.placeText(tiles, 19, 3, "Undo mistakes with 'u'");
+        
+        // Add barriers that require text manipulation
+        for (let i = 0; i < 10; i++) {
+            tiles[11][10 + i] = '▓';
+        }
+        
+        // Add exit
+        tiles[21][28] = 'E';
         
         return tiles;
     }
@@ -163,6 +230,18 @@ class VimQuest {
                 this.mode = 'insert';
                 this.addMessage("-- INSERT --", "info");
                 break;
+            case 'd': // Delete operations
+                this.handleDelete();
+                break;
+            case 'y': // Yank (copy) operations
+                this.handleYank();
+                break;
+            case 'p': // Paste
+                this.handlePaste();
+                break;
+            case 'u': // Undo
+                this.handleUndo();
+                break;
         }
         
         // Check for movement and update objective
@@ -202,7 +281,7 @@ class VimQuest {
         }
         
         const tile = this.currentRoomData.tiles[y][x];
-        return tile !== '═' && tile !== '║' && tile !== '#';
+        return tile !== '═' && tile !== '║' && tile !== '#' && tile !== '▓';
     }
 
     jumpToNextWord() {
@@ -306,12 +385,101 @@ class VimQuest {
         }
     }
 
+    handleDelete() {
+        // Simple dd implementation - delete current line
+        const y = this.player.y;
+        const line = this.currentRoomData.tiles[y];
+        
+        // Store the line in clipboard for undo
+        this.clipboard = line.slice();
+        
+        // Clear the line (except borders)
+        for (let x = 1; x < this.gridWidth - 1; x++) {
+            if (this.currentRoomData.tiles[y][x] !== '▓') {
+                this.currentRoomData.tiles[y][x] = ' ';
+            }
+        }
+        
+        this.addMessage("Deleted line with dd", "success");
+    }
+
+    handleYank() {
+        // Simple yy implementation - copy current line
+        const y = this.player.y;
+        const line = this.currentRoomData.tiles[y];
+        this.clipboard = line.slice();
+        this.addMessage("Yanked line with yy", "success");
+    }
+
+    handlePaste() {
+        // Simple p implementation - paste below current line
+        if (this.clipboard.length === 0) {
+            this.addMessage("Nothing to paste!", "error");
+            return;
+        }
+        
+        const y = this.player.y + 1;
+        if (y < this.gridHeight - 1) {
+            // Clear target line first
+            for (let x = 1; x < this.gridWidth - 1; x++) {
+                this.currentRoomData.tiles[y][x] = ' ';
+            }
+            
+            // Paste content (excluding borders)
+            for (let x = 1; x < this.gridWidth - 1 && x < this.clipboard.length; x++) {
+                if (this.clipboard[x] !== '║') {
+                    this.currentRoomData.tiles[y][x] = this.clipboard[x];
+                }
+            }
+            this.addMessage("Pasted with p", "success");
+        }
+    }
+
+    handleUndo() {
+        // Simple undo - restore the last deleted line
+        if (this.clipboard.length > 0) {
+            const y = this.player.y;
+            for (let x = 1; x < this.gridWidth - 1 && x < this.clipboard.length; x++) {
+                if (this.clipboard[x] !== '║') {
+                    this.currentRoomData.tiles[y][x] = this.clipboard[x];
+                }
+            }
+            this.addMessage("Undone with u", "success");
+        } else {
+            this.addMessage("Nothing to undo!", "error");
+        }
+    }
+
     checkObjectives() {
         const tile = this.currentRoomData.tiles[this.player.y][this.player.x];
         
         if (tile === 'E') {
             this.addMessage("Congratulations! You reached the exit!", "success");
-            this.addMessage("You've completed the tutorial!", "success");
+            
+            if (this.currentRoom === 'tutorial') {
+                this.addMessage("Tutorial complete! Advancing to Level 2...", "success");
+                setTimeout(() => this.advanceLevel(), 1500);
+            } else if (this.currentRoom === 'advanced') {
+                this.addMessage("You've mastered advanced Vim! Game complete!", "success");
+            }
+        }
+    }
+
+    advanceLevel() {
+        if (this.currentRoomData.nextRoom) {
+            this.currentRoom = this.currentRoomData.nextRoom;
+            this.currentRoomData = this.rooms[this.currentRoom];
+            this.currentLevel = this.currentRoomData.level;
+            
+            // Reset player position
+            this.player = { x: 1, y: 1 };
+            
+            // Clear messages and add welcome
+            this.messageLog.innerHTML = '';
+            this.addMessage(`Welcome to Level ${this.currentLevel}!`, "success");
+            this.addMessage("Master advanced Vim commands to proceed.", "info");
+            
+            this.updateUI();
         }
     }
 
@@ -331,6 +499,7 @@ class VimQuest {
 
     updateUI() {
         this.modeDisplay.textContent = this.mode.toUpperCase();
+        this.levelDisplay.textContent = this.currentLevel;
         this.roomDisplay.textContent = this.currentRoomData.name;
         
         const objective = this.currentRoomData.objectives[this.currentRoomData.currentObjective];
@@ -359,6 +528,8 @@ class VimQuest {
                         this.ctx.fillStyle = '#666';
                     } else if (char === '#') {
                         this.ctx.fillStyle = '#ff6600';
+                    } else if (char === '▓') {
+                        this.ctx.fillStyle = '#ff0000';
                     } else if (char === '♦') {
                         this.ctx.fillStyle = '#ff00ff';
                     } else if (char === 'E') {

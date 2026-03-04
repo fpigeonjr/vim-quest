@@ -57,6 +57,11 @@
             color: #ffff00;
         }
 
+        .level-indicator {
+            font-weight: bold;
+            color: #ff00ff;
+        }
+
         .room-title {
             color: #00ffff;
         }
@@ -135,6 +140,7 @@
 
         <div class="game-info">
             <div class="mode-indicator">Mode: <span id="mode-display">NORMAL</span></div>
+            <div class="level-indicator">Level: <span id="level-display">1</span></div>
             <div class="room-title">Room: <span id="room-display">Tutorial Chamber</span></div>
         </div>
 
@@ -164,7 +170,12 @@
             <span class="key-combo">$</span> line end | 
             <span class="key-combo">x</span> remove obstacle, 
             <span class="key-combo">i</span> insert mode, 
-            <span class="key-combo">Esc</span> normal mode
+            <span class="key-combo">Esc</span> normal mode<br>
+            <strong>Advanced:</strong>
+            <span class="key-combo">dd</span> delete line, 
+            <span class="key-combo">yy</span> copy line, 
+            <span class="key-combo">p</span> paste, 
+            <span class="key-combo">u</span> undo
         </div>
     </div>
 
