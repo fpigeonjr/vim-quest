@@ -4,7 +4,6 @@ class VimQuest {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
-        this.mode = 'normal';  // 'normal' or 'insert'
         this.gridWidth = 32;   // Characters per row
         this.gridHeight = 24;  // Character rows
         this.cellSize = 20;    // Pixels per character
@@ -17,6 +16,9 @@ class VimQuest {
         this.lastBlinkTime = 0;
         this.cursorVisible = true;
         this.clipboard = ''; // For copy/paste operations
+        this.mode = 'normal';  // 'normal', 'insert', 'visual', or 'command'
+        this.commandBuffer = ''; // For storing command input
+        this.searchTerm = ''; // For search operations
         
         // UI elements
         this.modeDisplay = document.getElementById('mode-display');
@@ -61,6 +63,22 @@ class VimQuest {
                     "Use 'p' to paste copied content",
                     "Use 'u' to undo your actions",
                     "Solve the text manipulation puzzle"
+                ],
+                currentObjective: 0,
+                nextRoom: 'master'
+            },
+            master: {
+                name: "Master's Sanctum",
+                level: 3,
+                width: 32,
+                height: 24,
+                tiles: this.createMasterRoom(),
+                objectives: [
+                    "Use '/word' to search for text",
+                    "Use 'fx' to find character 'x' on current line",
+                    "Use 'v' to enter visual mode for selection",
+                    "Use ':s/old/new' to substitute text",
+                    "Become a true Vim master!"
                 ],
                 currentObjective: 0,
                 nextRoom: null
@@ -165,6 +183,58 @@ class VimQuest {
         return tiles;
     }
 
+    createMasterRoom() {
+        // Create empty grid
+        const tiles = Array(this.gridHeight).fill().map(() => 
+            Array(this.gridWidth).fill(' ')
+        );
+        
+        // Add borders
+        for (let x = 0; x < this.gridWidth; x++) {
+            tiles[0][x] = '═';
+            tiles[this.gridHeight - 1][x] = '═';
+        }
+        for (let y = 0; y < this.gridHeight; y++) {
+            tiles[y][0] = '║';
+            tiles[y][this.gridWidth - 1] = '║';
+        }
+        
+        // Corner pieces
+        tiles[0][0] = '╔';
+        tiles[0][this.gridWidth - 1] = '╗';
+        tiles[this.gridHeight - 1][0] = '╚';
+        tiles[this.gridHeight - 1][this.gridWidth - 1] = '╝';
+        
+        // Master level content with search challenges
+        this.placeText(tiles, 3, 8, "THE MASTER'S SANCTUM");
+        this.placeText(tiles, 5, 3, "Search for the hidden word:");
+        this.placeText(tiles, 7, 5, "apple banana cherry date");
+        this.placeText(tiles, 8, 5, "elderberry fig grape honey");
+        this.placeText(tiles, 9, 5, "Use /cherry to find it");
+        
+        this.placeText(tiles, 12, 3, "Find character challenges:");
+        this.placeText(tiles, 14, 5, "abcdefghijklmnopqrstuvwxyz");
+        this.placeText(tiles, 15, 5, "Use 'fp' to find letter 'p'");
+        
+        this.placeText(tiles, 18, 3, "Visual selection test:");
+        this.placeText(tiles, 19, 5, "SELECT THIS TEXT");
+        this.placeText(tiles, 20, 5, "Use 'v' then arrows to select");
+        
+        // Add some puzzle barriers
+        for (let i = 0; i < 8; i++) {
+            tiles[11][12 + i] = '▓';
+        }
+        
+        // Hidden passages (require search to find)
+        tiles[10][25] = '?';
+        tiles[16][28] = '?';
+        
+        // Master exit
+        tiles[21][28] = 'M';
+        
+        return tiles;
+    }
+
     placeText(tiles, row, startCol, text) {
         for (let i = 0; i < text.length; i++) {
             if (startCol + i < this.gridWidth - 1) {
@@ -190,6 +260,10 @@ class VimQuest {
             this.handleNormalMode(key);
         } else if (this.mode === 'insert') {
             this.handleInsertMode(key);
+        } else if (this.mode === 'visual') {
+            this.handleVisualMode(key);
+        } else if (this.mode === 'command') {
+            this.handleCommandMode(key);
         }
         
         this.updateUI();
@@ -242,6 +316,36 @@ class VimQuest {
             case 'u': // Undo
                 this.handleUndo();
                 break;
+            case '/': // Search forward
+                this.mode = 'command';
+                this.commandBuffer = '/';
+                this.addMessage("Search: /", "info");
+                break;
+            case '?': // Search backward
+                this.mode = 'command';
+                this.commandBuffer = '?';
+                this.addMessage("Search: ?", "info");
+                break;
+            case ':': // Command mode
+                this.mode = 'command';
+                this.commandBuffer = ':';
+                this.addMessage("Command: :", "info");
+                break;
+            case 'f': // Find character forward
+                this.mode = 'command';
+                this.commandBuffer = 'f';
+                this.addMessage("Find character: f", "info");
+                break;
+            case 'F': // Find character backward
+                this.mode = 'command';
+                this.commandBuffer = 'F';
+                this.addMessage("Find character backward: F", "info");
+                break;
+            case 'v': // Visual mode
+                this.mode = 'visual';
+                this.visualStart = { ...this.player };
+                this.addMessage("-- VISUAL --", "info");
+                break;
         }
         
         // Check for movement and update objective
@@ -260,6 +364,67 @@ class VimQuest {
                 // In insert mode, try to collect items
                 this.collectItem();
                 break;
+        }
+    }
+
+    handleVisualMode(key) {
+        const oldPos = { ...this.player };
+        
+        switch (key) {
+            case 'Escape':
+                this.mode = 'normal';
+                this.addMessage("Exited visual mode", "info");
+                break;
+            case 'h':
+                this.movePlayer(-1, 0);
+                break;
+            case 'j':
+                this.movePlayer(0, 1);
+                break;
+            case 'k':
+                this.movePlayer(0, -1);
+                break;
+            case 'l':
+                this.movePlayer(1, 0);
+                break;
+            case 'd':
+                this.deleteSelection();
+                this.mode = 'normal';
+                break;
+            case 'y':
+                this.yankSelection();
+                this.mode = 'normal';
+                break;
+        }
+    }
+
+    handleCommandMode(key) {
+        if (key === 'Escape') {
+            this.mode = 'normal';
+            this.commandBuffer = '';
+            this.addMessage("Cancelled command", "info");
+            return;
+        }
+        
+        if (key === 'Enter') {
+            this.executeCommand(this.commandBuffer);
+            this.commandBuffer = '';
+            this.mode = 'normal';
+            return;
+        }
+        
+        if (key === 'Backspace') {
+            if (this.commandBuffer.length > 1) {
+                this.commandBuffer = this.commandBuffer.slice(0, -1);
+                this.addMessage(`Command: ${this.commandBuffer}`, "info");
+            }
+            return;
+        }
+        
+        // Add character to command buffer
+        if (key.length === 1) {
+            this.commandBuffer += key;
+            this.addMessage(`Command: ${this.commandBuffer}`, "info");
         }
     }
 
@@ -460,8 +625,14 @@ class VimQuest {
                 this.addMessage("Tutorial complete! Advancing to Level 2...", "success");
                 setTimeout(() => this.advanceLevel(), 1500);
             } else if (this.currentRoom === 'advanced') {
-                this.addMessage("You've mastered advanced Vim! Game complete!", "success");
+                this.addMessage("Advanced level complete! Advancing to Level 3...", "success");
+                setTimeout(() => this.advanceLevel(), 1500);
             }
+        } else if (tile === 'M') {
+            this.addMessage("Congratulations! You are now a Vim Master!", "success");
+            this.addMessage("You've completed all levels! 🎉", "success");
+        }
+    }
         }
     }
 
@@ -534,6 +705,10 @@ class VimQuest {
                         this.ctx.fillStyle = '#ff00ff';
                     } else if (char === 'E') {
                         this.ctx.fillStyle = '#00ff00';
+                    } else if (char === 'M') {
+                        this.ctx.fillStyle = '#ffff00';
+                    } else if (char === '?') {
+                        this.ctx.fillStyle = '#00ffff';
                     } else {
                         this.ctx.fillStyle = '#cccccc';
                     }
@@ -549,12 +724,217 @@ class VimQuest {
         
         // Render player (blinking cursor)
         if (this.cursorVisible) {
-            this.ctx.fillStyle = this.mode === 'insert' ? '#ffff00' : '#00ffff';
+            if (this.mode === 'insert') {
+                this.ctx.fillStyle = '#ffff00';
+            } else if (this.mode === 'visual') {
+                this.ctx.fillStyle = '#ff00ff';
+            } else if (this.mode === 'command') {
+                this.ctx.fillStyle = '#ff8800';
+            } else {
+                this.ctx.fillStyle = '#00ffff';
+            }
+            
             this.ctx.fillText(
                 '@',
                 this.player.x * this.cellSize + this.cellSize / 2,
                 this.player.y * this.cellSize + this.cellSize / 2
             );
+        }
+    }
+
+    gameLoop() {
+        const currentTime = Date.now();
+        
+        // Blink cursor every 500ms
+        if (currentTime - this.lastBlinkTime > 500) {
+            this.cursorVisible = !this.cursorVisible;
+            this.lastBlinkTime = currentTime;
+        }
+        
+        this.render();
+        requestAnimationFrame(() => this.gameLoop());
+        }
+    }
+
+    executeCommand(command) {
+        if (command.startsWith('/') && command.length > 1) {
+            // Level navigation commands
+            if (command === '/1') {
+                this.goToLevel(1, 'tutorial');
+                return;
+            }
+            if (command === '/2') {
+                this.goToLevel(2, 'advanced');
+                return;
+            }
+            if (command === '/3') {
+                this.goToLevel(3, 'master');
+                return;
+            }
+            
+            // Search functionality
+            this.searchForward(command.substring(1));
+        } else if (command.startsWith('?') && command.length > 1) {
+            this.searchBackward(command.substring(1));
+        } else if (command.startsWith('f') && command.length === 2) {
+            this.findCharacter(command[1], true);
+        } else if (command.startsWith('F') && command.length === 2) {
+            this.findCharacter(command[1], false);
+        } else if (command.startsWith(':') && command.length > 1) {
+            this.executeColonCommand(command.substring(1));
+        } else {
+            this.addMessage("Unknown command: " + command, "error");
+        }
+    }
+
+    goToLevel(level, room) {
+        if (this.rooms[room]) {
+            this.currentRoom = room;
+            this.currentLevel = level;
+            this.currentRoomData = this.rooms[this.currentRoom];
+            this.player = { x: 1, y: 1 };
+            this.addMessage(`Teleported to Level ${level}`, "success");
+            this.updateUI();
+        }
+    }
+
+    searchForward(term) {
+        this.searchTerm = term;
+        for (let y = this.player.y; y < this.gridHeight; y++) {
+            const startX = (y === this.player.y) ? this.player.x + 1 : 1;
+            for (let x = startX; x < this.gridWidth - 1; x++) {
+                if (this.matchesSearchTerm(x, y, term)) {
+                    this.player.x = x;
+                    this.player.y = y;
+                    this.addMessage(`Found: ${term}`, "success");
+                    return;
+                }
+            }
+        }
+        this.addMessage(`Not found: ${term}`, "error");
+    }
+
+    searchBackward(term) {
+        this.searchTerm = term;
+        for (let y = this.player.y; y >= 1; y--) {
+            const endX = (y === this.player.y) ? this.player.x - 1 : this.gridWidth - 2;
+            for (let x = endX; x >= 1; x--) {
+                if (this.matchesSearchTerm(x, y, term)) {
+                    this.player.x = x;
+                    this.player.y = y;
+                    this.addMessage(`Found: ${term}`, "success");
+                    return;
+                }
+            }
+        }
+        this.addMessage(`Not found: ${term}`, "error");
+    }
+
+    matchesSearchTerm(x, y, term) {
+        let match = '';
+        for (let i = 0; i < term.length; i++) {
+            if (x + i >= this.gridWidth - 1) return false;
+            match += this.currentRoomData.tiles[y][x + i];
+        }
+        return match.toLowerCase() === term.toLowerCase();
+    }
+
+    findCharacter(char, forward) {
+        const row = this.currentRoomData.tiles[this.player.y];
+        if (forward) {
+            for (let x = this.player.x + 1; x < this.gridWidth - 1; x++) {
+                if (row[x].toLowerCase() === char.toLowerCase()) {
+                    this.player.x = x;
+                    this.addMessage(`Found: ${char}`, "success");
+                    return;
+                }
+            }
+        } else {
+            for (let x = this.player.x - 1; x >= 1; x--) {
+                if (row[x].toLowerCase() === char.toLowerCase()) {
+                    this.player.x = x;
+                    this.addMessage(`Found: ${char}`, "success");
+                    return;
+                }
+            }
+        }
+        this.addMessage(`Not found: ${char}`, "error");
+    }
+
+    executeColonCommand(command) {
+        if (command.startsWith('s/') || command.startsWith('substitute/')) {
+            this.handleSubstitute(command);
+        } else {
+            this.addMessage("Unknown colon command: :" + command, "error");
+        }
+    }
+
+    handleSubstitute(command) {
+        // Simple s/old/new implementation
+        const parts = command.split('/');
+        if (parts.length >= 3) {
+            const old = parts[1];
+            const newText = parts[2];
+            const currentRow = this.currentRoomData.tiles[this.player.y];
+            
+            // Find and replace on current line
+            for (let x = 1; x < this.gridWidth - 1; x++) {
+                if (this.matchesSearchTerm(x, this.player.y, old)) {
+                    // Replace the text
+                    for (let i = 0; i < Math.max(old.length, newText.length); i++) {
+                        if (x + i < this.gridWidth - 1) {
+                            this.currentRoomData.tiles[this.player.y][x + i] = 
+                                i < newText.length ? newText[i] : ' ';
+                        }
+                    }
+                    this.addMessage(`Substituted: ${old} → ${newText}`, "success");
+                    return;
+                }
+            }
+            this.addMessage(`Pattern not found: ${old}`, "error");
+        } else {
+            this.addMessage("Invalid substitute syntax", "error");
+        }
+    }
+
+    deleteSelection() {
+        if (this.visualStart) {
+            this.addMessage("Deleted visual selection", "success");
+            // Simple implementation - just clear the current position
+            this.currentRoomData.tiles[this.player.y][this.player.x] = ' ';
+        }
+    }
+
+    yankSelection() {
+        if (this.visualStart) {
+            this.addMessage("Yanked visual selection", "success");
+            // Simple implementation - copy current character
+            this.clipboard = this.currentRoomData.tiles[this.player.y][this.player.x];
+        }
+    }
+
+    addMessage(text, type = "info") {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        messageDiv.textContent = text;
+        
+        this.messageLog.appendChild(messageDiv);
+        this.messageLog.scrollTop = this.messageLog.scrollHeight;
+        
+        // Keep only last 10 messages
+        while (this.messageLog.children.length > 10) {
+            this.messageLog.removeChild(this.messageLog.firstChild);
+        }
+    }
+
+    updateUI() {
+        this.modeDisplay.textContent = this.mode.toUpperCase();
+        this.levelDisplay.textContent = this.currentLevel;
+        this.roomDisplay.textContent = this.currentRoomData.name;
+        
+        const objective = this.currentRoomData.objectives[this.currentRoomData.currentObjective];
+        if (objective) {
+            this.hintText.textContent = objective;
         }
     }
 
