@@ -1,399 +1,214 @@
-// Vim Quest - A text-based adventure game for learning Vim commands
-
 class VimQuest {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
-        this.gridWidth = 32;   // Characters per row
-        this.gridHeight = 24;  // Character rows
-        this.cellSize = 20;    // Pixels per character
-        
-        // Game state
-        this.player = { x: 1, y: 1 };
-        this.currentRoom = 'tutorial';
-        this.currentLevel = 1;
-        this.messages = [];
-        this.lastBlinkTime = 0;
-        this.cursorVisible = true;
-        this.clipboard = ''; // For copy/paste operations
-        this.mode = 'normal';  // 'normal', 'insert', 'visual', or 'command'
-        this.commandBuffer = ''; // For storing command input
-        this.searchTerm = ''; // For search operations
-        this.visualStart = null; // For visual mode selection
-        this.pendingKey = null; // For double-key commands (dd, yy)
-        
-        // UI elements
         this.modeDisplay = document.getElementById('mode-display');
         this.levelDisplay = document.getElementById('level-display');
         this.roomDisplay = document.getElementById('room-display');
         this.hintText = document.getElementById('hint-text');
         this.messageLog = document.querySelector('.message-log');
-        
-        this.initializeRoom();
-        this.setupEventListeners();
+
+        this.gridWidth = 32;
+        this.gridHeight = 24;
+        this.cellSize = 20;
+
+        this.mode = 'normal';
+        this.currentRoom = 'tutorial';
+        this.currentLevel = 1;
+        this.player = { x: 2, y: 2 };
+        this.cursorVisible = true;
+        this.lastBlinkTime = 0;
+        this.commandBuffer = '';
+        this.pendingOperator = null;
+        this.visualStart = null;
+        this.clipboard = null;
+        this.lastChange = null;
+        this.flags = {
+            gemCollected: false,
+            level2GateOpen: false,
+            level3FindDone: false,
+            level3SearchDone: false,
+            level3VisualDone: false,
+        };
+
+        this.rooms = this.createRooms();
+        this.loadRoom(this.currentRoom, true);
+        this.setupEvents();
         this.gameLoop();
     }
 
-    initializeRoom() {
-        // All game rooms
-        this.rooms = {
+    createEmptyGrid() {
+        const grid = [];
+        for (let y = 0; y < this.gridHeight; y += 1) {
+            const row = [];
+            for (let x = 0; x < this.gridWidth; x += 1) {
+                if (y === 0 || y === this.gridHeight - 1) {
+                    row.push('-');
+                } else if (x === 0 || x === this.gridWidth - 1) {
+                    row.push('|');
+                } else {
+                    row.push(' ');
+                }
+            }
+            grid.push(row);
+        }
+
+        grid[0][0] = '+';
+        grid[0][this.gridWidth - 1] = '+';
+        grid[this.gridHeight - 1][0] = '+';
+        grid[this.gridHeight - 1][this.gridWidth - 1] = '+';
+        return grid;
+    }
+
+    placeText(grid, x, y, text) {
+        for (let i = 0; i < text.length; i += 1) {
+            const drawX = x + i;
+            if (drawX > 0 && drawX < this.gridWidth - 1 && y > 0 && y < this.gridHeight - 1) {
+                grid[y][drawX] = text[i];
+            }
+        }
+    }
+
+    cloneGrid(grid) {
+        return grid.map((row) => row.slice());
+    }
+
+    createRooms() {
+        const tutorial = this.createEmptyGrid();
+        this.placeText(tutorial, 3, 3, 'Welcome brave cursor');
+        this.placeText(tutorial, 3, 5, 'Move with h j k l');
+        this.placeText(tutorial, 3, 7, 'Use w to jump words');
+        this.placeText(tutorial, 3, 9, 'Press x near ###');
+        this.placeText(tutorial, 3, 11, 'Use i on * to collect');
+        tutorial[9][23] = '#';
+        tutorial[9][24] = '#';
+        tutorial[9][25] = '#';
+        tutorial[11][24] = '*';
+        tutorial[20][28] = 'E';
+
+        const advanced = this.createEmptyGrid();
+        this.placeText(advanced, 3, 3, 'Advanced Chamber');
+        this.placeText(advanced, 3, 5, 'Stand on a line and press dd');
+        this.placeText(advanced, 5, 8, 'delete this warning line');
+        this.placeText(advanced, 5, 9, 'delete this gate line');
+        this.placeText(advanced, 3, 13, 'Stand here and yy');
+        this.placeText(advanced, 7, 14, 'copied text');
+        this.placeText(advanced, 3, 16, 'Move up, then p to paste below');
+        this.placeText(advanced, 3, 18, 'u restores the last deleted line');
+        for (let x = 18; x <= 25; x += 1) {
+            advanced[11][x] = 'X';
+        }
+        advanced[20][28] = 'E';
+
+        const master = this.createEmptyGrid();
+        this.placeText(master, 3, 3, 'Masters Sanctum');
+        this.placeText(master, 3, 5, 'Search /cherry or ?apple');
+        this.placeText(master, 5, 7, 'apple banana cherry date');
+        this.placeText(master, 3, 10, 'Use fp on this alphabet row');
+        this.placeText(master, 5, 11, 'abcdefghijklmnopqrstuvwxyz');
+        this.placeText(master, 3, 14, 'Press v then move and y');
+        this.placeText(master, 5, 15, 'SELECT');
+        this.placeText(master, 3, 18, 'Try :s/SELECT/VICTORY');
+        master[20][28] = 'M';
+
+        return {
             tutorial: {
-                name: "Tutorial Chamber",
                 level: 1,
-                width: 32,
-                height: 24,
-                tiles: this.createTutorialRoom(),
-                objectives: [
-                    "Use h/j/k/l to move to the first word marker",
-                    "Press 'w' to jump to the next word",
-                    "Navigate to the exit 'E'",
-                    "Try 'x' to remove the obstacle '#'",
-                    "Use 'i' to enter insert mode and collect the gem"
-                ],
-                currentObjective: 0,
-                nextRoom: 'advanced'
+                name: 'Tutorial Chamber',
+                start: { x: 2, y: 2 },
+                baseTiles: tutorial,
+                objective() {
+                    return 'Use h/j/k/l, then try w, x, and i before reaching E';
+                },
+                nextRoom: 'advanced',
             },
             advanced: {
-                name: "Advanced Chamber",
                 level: 2,
-                width: 32,
-                height: 24,
-                tiles: this.createAdvancedRoom(),
-                objectives: [
-                    "Use 'dd' to delete entire lines",
-                    "Use 'yy' to copy (yank) lines", 
-                    "Use 'p' to paste copied content",
-                    "Use 'u' to undo your actions",
-                    "Solve the text manipulation puzzle"
-                ],
-                currentObjective: 0,
-                nextRoom: 'master'
+                name: 'Advanced Chamber',
+                start: { x: 2, y: 2 },
+                baseTiles: advanced,
+                objective() {
+                    return 'Use dd, yy, p, and u, then reach E';
+                },
+                nextRoom: 'master',
             },
             master: {
-                name: "Master's Sanctum",
                 level: 3,
-                width: 32,
-                height: 24,
-                tiles: this.createMasterRoom(),
-                objectives: [
-                    "Use '/word' to search for text",
-                    "Use 'fx' to find character 'x' on current line",
-                    "Use 'v' to enter visual mode for selection",
-                    "Use ':s/old/new' to substitute text",
-                    "Become a true Vim master!"
-                ],
-                currentObjective: 0,
-                nextRoom: null
-            }
+                name: 'Masters Sanctum',
+                start: { x: 2, y: 2 },
+                baseTiles: master,
+                objective: () => 'Use /, f, v, and :s/.../... then reach M',
+                nextRoom: null,
+            },
         };
-        
-        this.currentRoomData = this.rooms[this.currentRoom];
-        this.updateUI();
     }
 
-    createTutorialRoom() {
-        // Create empty grid
-        const tiles = Array(this.gridHeight).fill().map(() => 
-            Array(this.gridWidth).fill(' ')
-        );
-        
-        // Add borders
-        for (let x = 0; x < this.gridWidth; x++) {
-            tiles[0][x] = '═';
-            tiles[this.gridHeight - 1][x] = '═';
-        }
-        for (let y = 0; y < this.gridHeight; y++) {
-            tiles[y][0] = '║';
-            tiles[y][this.gridWidth - 1] = '║';
-        }
-        
-        // Corner pieces
-        tiles[0][0] = '╔';
-        tiles[0][this.gridWidth - 1] = '╗';
-        tiles[this.gridHeight - 1][0] = '╚';
-        tiles[this.gridHeight - 1][this.gridWidth - 1] = '╝';
-        
-        // Add tutorial content
-        const text1 = "Welcome brave cursor!";
-        const text2 = "Use vim motions to navigate";
-        const text3 = "Press w to jump between words";
-        const text4 = "Remove obstacles with x";
-        
-        // Place text with word markers
-        this.placeText(tiles, 3, 3, text1);
-        this.placeText(tiles, 5, 6, text2);
-        this.placeText(tiles, 8, 9, text3);
-        this.placeText(tiles, 11, 12, text4);
-        
-        // Add some obstacles
-        tiles[7][15] = '#';
-        tiles[8][15] = '#';
-        tiles[9][15] = '#';
-        
-        // Add collectible gem (requires insert mode)
-        tiles[6][25] = '♦';
-        
-        // Add exit
-        tiles[20][28] = 'E';
-        
-        return tiles;
-    }
-
-    createAdvancedRoom() {
-        // Create empty grid
-        const tiles = Array(this.gridHeight).fill().map(() => 
-            Array(this.gridWidth).fill(' ')
-        );
-        
-        // Add borders
-        for (let x = 0; x < this.gridWidth; x++) {
-            tiles[0][x] = '═';
-            tiles[this.gridHeight - 1][x] = '═';
-        }
-        for (let y = 0; y < this.gridHeight; y++) {
-            tiles[y][0] = '║';
-            tiles[y][this.gridWidth - 1] = '║';
-        }
-        
-        // Corner pieces
-        tiles[0][0] = '╔';
-        tiles[0][this.gridWidth - 1] = '╗';
-        tiles[this.gridHeight - 1][0] = '╚';
-        tiles[this.gridHeight - 1][this.gridWidth - 1] = '╝';
-        
-        // Advanced puzzle content
-        this.placeText(tiles, 3, 3, "ADVANCED VIM MASTERY");
-        this.placeText(tiles, 5, 3, "Delete these lines:");
-        this.placeText(tiles, 7, 5, "unwanted line 1");
-        this.placeText(tiles, 8, 5, "unwanted line 2");
-        this.placeText(tiles, 9, 5, "unwanted line 3");
-        
-        this.placeText(tiles, 12, 3, "Copy and paste:");
-        this.placeText(tiles, 14, 5, "copy this text");
-        this.placeText(tiles, 16, 5, "paste here: _____");
-        
-        this.placeText(tiles, 19, 3, "Undo mistakes with 'u'");
-        
-        // Add barriers that require text manipulation
-        for (let i = 0; i < 10; i++) {
-            tiles[11][10 + i] = '▓';
-        }
-        
-        // Add exit
-        tiles[21][28] = 'E';
-        
-        return tiles;
-    }
-
-    createMasterRoom() {
-        // Create empty grid
-        const tiles = Array(this.gridHeight).fill().map(() => 
-            Array(this.gridWidth).fill(' ')
-        );
-        
-        // Add borders
-        for (let x = 0; x < this.gridWidth; x++) {
-            tiles[0][x] = '═';
-            tiles[this.gridHeight - 1][x] = '═';
-        }
-        for (let y = 0; y < this.gridHeight; y++) {
-            tiles[y][0] = '║';
-            tiles[y][this.gridWidth - 1] = '║';
-        }
-        
-        // Corner pieces
-        tiles[0][0] = '╔';
-        tiles[0][this.gridWidth - 1] = '╗';
-        tiles[this.gridHeight - 1][0] = '╚';
-        tiles[this.gridHeight - 1][this.gridWidth - 1] = '╝';
-        
-        // Master level content with search challenges
-        this.placeText(tiles, 3, 8, "THE MASTER'S SANCTUM");
-        this.placeText(tiles, 5, 3, "Search for the hidden word:");
-        this.placeText(tiles, 7, 5, "apple banana cherry date");
-        this.placeText(tiles, 8, 5, "elderberry fig grape honey");
-        this.placeText(tiles, 9, 5, "Use /cherry to find it");
-        
-        this.placeText(tiles, 12, 3, "Find character challenges:");
-        this.placeText(tiles, 14, 5, "abcdefghijklmnopqrstuvwxyz");
-        this.placeText(tiles, 15, 5, "Use 'fp' to find letter 'p'");
-        
-        this.placeText(tiles, 18, 3, "Visual selection test:");
-        this.placeText(tiles, 19, 5, "SELECT THIS TEXT");
-        this.placeText(tiles, 20, 5, "Use 'v' then arrows to select");
-        
-        // Add some puzzle barriers
-        for (let i = 0; i < 8; i++) {
-            tiles[11][12 + i] = '▓';
-        }
-        
-        // Hidden passages (require search to find)
-        tiles[10][25] = '?';
-        tiles[16][28] = '?';
-        
-        // Master exit
-        tiles[21][28] = 'M';
-        
-        return tiles;
-    }
-
-    placeText(tiles, row, startCol, text) {
-        for (let i = 0; i < text.length; i++) {
-            if (startCol + i < this.gridWidth - 1) {
-                tiles[row][startCol + i] = text[i];
-            }
-        }
-    }
-
-    setupEventListeners() {
-        // Focus the canvas so it can receive keyboard events
+    setupEvents() {
         this.canvas.setAttribute('tabindex', '0');
-        this.canvas.focus();
-        
-        this.canvas.addEventListener('keydown', (e) => this.handleKeyPress(e));
         this.canvas.addEventListener('click', () => this.canvas.focus());
+        window.addEventListener('keydown', (event) => this.handleKeyDown(event));
+        this.canvas.focus();
     }
 
-    handleKeyPress(e) {
-        e.preventDefault();
-        const key = e.key;
-        
-        if (this.mode === 'normal') {
-            this.handleNormalMode(key);
-        } else if (this.mode === 'insert') {
-            this.handleInsertMode(key);
-        } else if (this.mode === 'visual') {
-            this.handleVisualMode(key);
-        } else if (this.mode === 'command') {
-            this.handleCommandMode(key);
+    loadRoom(roomKey, preserveMessages = false) {
+        const room = this.rooms[roomKey];
+        this.currentRoom = roomKey;
+        this.currentLevel = room.level;
+        this.currentRoomData = room;
+        this.tiles = this.cloneGrid(room.baseTiles);
+        this.player = { ...room.start };
+        this.mode = 'normal';
+        this.commandBuffer = '';
+        this.pendingOperator = null;
+        this.visualStart = null;
+
+        if (!preserveMessages) {
+            this.messageLog.innerHTML = '';
         }
-        
+
+        this.addMessage(`Entered Level ${room.level}: ${room.name}`, 'success');
         this.updateUI();
     }
 
-    handleNormalMode(key) {
-        const oldPos = { ...this.player };
-        
-        // Handle double-key commands (dd, yy)
-        if (this.pendingKey) {
-            if ((this.pendingKey === 'd' && key === 'd') || 
-                (this.pendingKey === 'y' && key === 'y')) {
-                // Execute the double-key command
-                if (this.pendingKey === 'd') this.handleDelete();
-                if (this.pendingKey === 'y') this.handleYank();
-                this.pendingKey = null;
+    handleKeyDown(event) {
+        const key = event.key;
+
+        if (['Tab'].includes(key)) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (this.mode === 'command') {
+            this.handleCommandInput(key);
+        } else if (this.mode === 'insert') {
+            this.handleInsertInput(key);
+        } else if (this.mode === 'visual') {
+            this.handleVisualInput(key);
+        } else {
+            this.handleNormalInput(key);
+        }
+
+        this.updateUI();
+        this.canvas.focus();
+    }
+
+    handleNormalInput(key) {
+        if (this.pendingOperator) {
+            const operator = this.pendingOperator;
+            this.pendingOperator = null;
+
+            if (operator === 'd' && key === 'd') {
+                this.deleteCurrentLine();
                 return;
-            } else {
-                // Different key pressed, reset pending and process new key
-                this.pendingKey = null;
+            }
+            if (operator === 'y' && key === 'y') {
+                this.yankCurrentLine();
+                return;
             }
         }
-        
-        switch (key) {
-            case 'h': // Move left
-                this.movePlayer(-1, 0);
-                break;
-            case 'j': // Move down
-                this.movePlayer(0, 1);
-                break;
-            case 'k': // Move up
-                this.movePlayer(0, -1);
-                break;
-            case 'l': // Move right
-                this.movePlayer(1, 0);
-                break;
-            case 'w': // Jump to next word
-                this.jumpToNextWord();
-                break;
-            case 'b': // Jump to previous word
-                this.jumpToPreviousWord();
-                break;
-            case '0': // Jump to start of line
-                this.jumpToLineStart();
-                break;
-            case '$': // Jump to end of line
-                this.jumpToLineEnd();
-                break;
-            case 'x': // Remove obstacle
-                this.removeObstacle();
-                break;
-            case 'i': // Enter insert mode
-                this.mode = 'insert';
-                this.addMessage("-- INSERT --", "info");
-                break;
-            case 'd': // Delete operations - wait for second 'd'
-                this.pendingKey = 'd';
-                this.addMessage("dd: delete line", "info");
-                break;
-            case 'y': // Yank (copy) operations - wait for second 'y'
-                this.pendingKey = 'y';
-                this.addMessage("yy: yank line", "info");
-                break;
-            case 'p': // Paste
-                this.handlePaste();
-                break;
-            case 'u': // Undo
-                this.handleUndo();
-                break;
-            case '/': // Search forward
-                this.mode = 'command';
-                this.commandBuffer = '/';
-                this.addMessage("Search: /", "info");
-                break;
-            case '?': // Search backward
-                this.mode = 'command';
-                this.commandBuffer = '?';
-                this.addMessage("Search: ?", "info");
-                break;
-            case ':': // Command mode
-                this.mode = 'command';
-                this.commandBuffer = ':';
-                this.addMessage("Command: :", "info");
-                break;
-            case 'f': // Find character forward
-                this.mode = 'command';
-                this.commandBuffer = 'f';
-                this.addMessage("Find character: f", "info");
-                break;
-            case 'F': // Find character backward
-                this.mode = 'command';
-                this.commandBuffer = 'F';
-                this.addMessage("Find character backward: F", "info");
-                break;
-            case 'v': // Visual mode
-                this.mode = 'visual';
-                this.visualStart = { ...this.player };
-                this.addMessage("-- VISUAL --", "info");
-                break;
-        }
-        
-        // Check for movement and update objective
-        if (oldPos.x !== this.player.x || oldPos.y !== this.player.y) {
-            this.checkObjectives();
-        }
-    }
 
-    handleInsertMode(key) {
         switch (key) {
-            case 'Escape':
-                this.mode = 'normal';
-                this.addMessage("Exited insert mode", "info");
-                break;
-            default:
-                // In insert mode, try to collect items
-                this.collectItem();
-                break;
-        }
-    }
-
-    handleVisualMode(key) {
-        const oldPos = { ...this.player };
-        
-        switch (key) {
-            case 'Escape':
-                this.mode = 'normal';
-                this.addMessage("Exited visual mode", "info");
-                break;
             case 'h':
                 this.movePlayer(-1, 0);
                 break;
@@ -406,578 +221,633 @@ class VimQuest {
             case 'l':
                 this.movePlayer(1, 0);
                 break;
+            case 'w':
+                this.jumpWord(1);
+                break;
+            case 'b':
+                this.jumpWord(-1);
+                break;
+            case '0':
+                this.jumpLineEdge('start');
+                break;
+            case '$':
+                this.jumpLineEdge('end');
+                break;
+            case 'x':
+                this.removeNearbyObstacle();
+                break;
+            case 'i':
+                this.mode = 'insert';
+                this.addMessage('-- INSERT --', 'info');
+                break;
             case 'd':
-                this.deleteSelection();
-                this.mode = 'normal';
+                this.pendingOperator = 'd';
+                this.addMessage('Pending: dd', 'info');
                 break;
             case 'y':
-                this.yankSelection();
-                this.mode = 'normal';
+                this.pendingOperator = 'y';
+                this.addMessage('Pending: yy', 'info');
+                break;
+            case 'p':
+                this.pasteBelow();
+                break;
+            case 'u':
+                this.undoLastChange();
+                break;
+            case '/':
+            case '?':
+            case ':':
+            case 'f':
+            case 'F':
+                this.mode = 'command';
+                this.commandBuffer = key;
+                this.addMessage(`Command: ${this.commandBuffer}`, 'info');
+                break;
+            case 'v':
+                this.mode = 'visual';
+                this.visualStart = { ...this.player };
+                this.addMessage('-- VISUAL --', 'info');
+                break;
+            default:
                 break;
         }
     }
 
-    handleCommandMode(key) {
+    handleInsertInput(key) {
+        if (key === 'Escape') {
+            this.mode = 'normal';
+            this.addMessage('Back to NORMAL', 'info');
+            return;
+        }
+
+        const tile = this.getTile(this.player.x, this.player.y);
+        if (tile === '*') {
+            this.setTile(this.player.x, this.player.y, ' ');
+            this.flags.gemCollected = true;
+            this.addMessage('Collected the training gem', 'success');
+        } else {
+            this.addMessage('Nothing to insert here', 'error');
+        }
+    }
+
+    handleVisualInput(key) {
+        switch (key) {
+            case 'Escape':
+                this.mode = 'normal';
+                this.visualStart = null;
+                this.addMessage('Visual mode cancelled', 'info');
+                return;
+            case 'h':
+                this.movePlayer(-1, 0);
+                break;
+            case 'j':
+                this.movePlayer(0, 1);
+                break;
+            case 'k':
+                this.movePlayer(0, -1);
+                break;
+            case 'l':
+                this.movePlayer(1, 0);
+                break;
+            case 'y':
+                this.yankSelection();
+                this.mode = 'normal';
+                this.visualStart = null;
+                return;
+            case 'd':
+                this.deleteSelection();
+                this.mode = 'normal';
+                this.visualStart = null;
+                return;
+            default:
+                return;
+        }
+    }
+
+    handleCommandInput(key) {
         if (key === 'Escape') {
             this.mode = 'normal';
             this.commandBuffer = '';
-            this.addMessage("Cancelled command", "info");
+            this.addMessage('Command cancelled', 'info');
             return;
         }
-        
+
+        if (key === 'Backspace') {
+            if (this.commandBuffer.length > 1) {
+                this.commandBuffer = this.commandBuffer.slice(0, -1);
+            }
+            return;
+        }
+
         if (key === 'Enter') {
             this.executeCommand(this.commandBuffer);
             this.commandBuffer = '';
             this.mode = 'normal';
             return;
         }
-        
-        if (key === 'Backspace') {
-            if (this.commandBuffer.length > 1) {
-                this.commandBuffer = this.commandBuffer.slice(0, -1);
-                this.addMessage(`Command: ${this.commandBuffer}`, "info");
-            }
-            return;
-        }
-        
-        // Add character to command buffer
+
         if (key.length === 1) {
             this.commandBuffer += key;
-            this.addMessage(`Command: ${this.commandBuffer}`, "info");
         }
+    }
+
+    executeCommand(command) {
+        if (command === '/1') {
+            this.loadRoom('tutorial');
+            return;
+        }
+        if (command === '/2') {
+            this.loadRoom('advanced');
+            return;
+        }
+        if (command === '/3') {
+            this.loadRoom('master');
+            return;
+        }
+        if (command.startsWith('/')) {
+            this.search(command.slice(1), 1);
+            return;
+        }
+        if (command.startsWith('?')) {
+            this.search(command.slice(1), -1);
+            return;
+        }
+        if (command.startsWith('f') && command.length === 2) {
+            this.findCharacter(command[1], 1);
+            return;
+        }
+        if (command.startsWith('F') && command.length === 2) {
+            this.findCharacter(command[1], -1);
+            return;
+        }
+        if (command.startsWith(':s/')) {
+            this.substitute(command);
+            return;
+        }
+
+        this.addMessage(`Unknown command: ${command}`, 'error');
     }
 
     movePlayer(dx, dy) {
-        const newX = this.player.x + dx;
-        const newY = this.player.y + dy;
-        
-        if (this.isValidMove(newX, newY)) {
-            this.player.x = newX;
-            this.player.y = newY;
-        } else {
-            this.addMessage("Cannot move there!", "error");
-        }
-    }
-
-    isValidMove(x, y) {
-        if (x < 1 || x >= this.gridWidth - 1 || y < 1 || y >= this.gridHeight - 1) {
-            return false;
-        }
-        
-        const tile = this.currentRoomData.tiles[y][x];
-        return tile !== '═' && tile !== '║' && tile !== '#' && tile !== '▓';
-    }
-
-    jumpToNextWord() {
-        const currentRow = this.currentRoomData.tiles[this.player.y];
-        let foundWord = false;
-        
-        for (let x = this.player.x + 1; x < this.gridWidth - 1; x++) {
-            const char = currentRow[x];
-            const prevChar = currentRow[x - 1];
-            
-            // Found start of a word (non-space after space or start)
-            if (char !== ' ' && prevChar === ' ') {
-                if (this.isValidMove(x, this.player.y)) {
-                    this.player.x = x;
-                    foundWord = true;
-                    break;
-                }
-            }
-        }
-        
-        if (!foundWord) {
-            this.addMessage("No more words on this line", "info");
-        }
-    }
-
-    jumpToPreviousWord() {
-        const currentRow = this.currentRoomData.tiles[this.player.y];
-        let foundWord = false;
-        
-        for (let x = this.player.x - 1; x > 0; x--) {
-            const char = currentRow[x];
-            const nextChar = currentRow[x + 1];
-            
-            // Found start of a word (non-space before space)
-            if (char !== ' ' && nextChar === ' ') {
-                if (this.isValidMove(x, this.player.y)) {
-                    this.player.x = x;
-                    foundWord = true;
-                    break;
-                }
-            }
-        }
-        
-        if (!foundWord) {
-            this.addMessage("No previous words on this line", "info");
-        }
-    }
-
-    jumpToLineStart() {
-        for (let x = 1; x < this.gridWidth - 1; x++) {
-            if (this.isValidMove(x, this.player.y)) {
-                this.player.x = x;
-                break;
-            }
-        }
-    }
-
-    jumpToLineEnd() {
-        for (let x = this.gridWidth - 2; x > 0; x--) {
-            if (this.isValidMove(x, this.player.y)) {
-                this.player.x = x;
-                break;
-            }
-        }
-    }
-
-    removeObstacle() {
-        const directions = [
-            { dx: 0, dy: 0 },   // Current position
-            { dx: 1, dy: 0 },   // Right
-            { dx: -1, dy: 0 },  // Left
-            { dx: 0, dy: 1 },   // Down
-            { dx: 0, dy: -1 }   // Up
-        ];
-        
-        let removed = false;
-        for (const dir of directions) {
-            const x = this.player.x + dir.dx;
-            const y = this.player.y + dir.dy;
-            
-            if (x >= 0 && x < this.gridWidth && y >= 0 && y < this.gridHeight) {
-                if (this.currentRoomData.tiles[y][x] === '#') {
-                    this.currentRoomData.tiles[y][x] = ' ';
-                    this.addMessage("Removed obstacle!", "success");
-                    removed = true;
-                    break;
-                }
-            }
-        }
-        
-        if (!removed) {
-            this.addMessage("No obstacle to remove here", "error");
-        }
-    }
-
-    collectItem() {
-        const tile = this.currentRoomData.tiles[this.player.y][this.player.x];
-        if (tile === '♦') {
-            this.currentRoomData.tiles[this.player.y][this.player.x] = ' ';
-            this.addMessage("Collected gem! ♦", "success");
-        }
-    }
-
-    handleDelete() {
-        // Simple dd implementation - delete current line
-        const y = this.player.y;
-        const line = this.currentRoomData.tiles[y];
-        
-        // Store the line in clipboard for undo
-        this.clipboard = line.slice();
-        
-        // Clear the line (except borders)
-        for (let x = 1; x < this.gridWidth - 1; x++) {
-            if (this.currentRoomData.tiles[y][x] !== '▓') {
-                this.currentRoomData.tiles[y][x] = ' ';
-            }
-        }
-        
-        this.addMessage("Deleted line with dd", "success");
-    }
-
-    handleYank() {
-        // Simple yy implementation - copy current line
-        const y = this.player.y;
-        const line = this.currentRoomData.tiles[y];
-        this.clipboard = line.slice();
-        this.addMessage("Yanked line with yy", "success");
-    }
-
-    handlePaste() {
-        // Simple p implementation - paste below current line
-        if (this.clipboard.length === 0) {
-            this.addMessage("Nothing to paste!", "error");
+        const nextX = this.player.x + dx;
+        const nextY = this.player.y + dy;
+        if (!this.isWalkable(nextX, nextY)) {
+            this.addMessage('Blocked', 'error');
             return;
         }
-        
-        const y = this.player.y + 1;
-        if (y < this.gridHeight - 1) {
-            // Clear target line first
-            for (let x = 1; x < this.gridWidth - 1; x++) {
-                this.currentRoomData.tiles[y][x] = ' ';
-            }
-            
-            // Paste content (excluding borders)
-            for (let x = 1; x < this.gridWidth - 1 && x < this.clipboard.length; x++) {
-                if (this.clipboard[x] !== '║') {
-                    this.currentRoomData.tiles[y][x] = this.clipboard[x];
-                }
-            }
-            this.addMessage("Pasted with p", "success");
+
+        this.player.x = nextX;
+        this.player.y = nextY;
+        this.checkTileEvents();
+    }
+
+    isWalkable(x, y) {
+        const tile = this.getTile(x, y);
+        return tile !== undefined && tile !== '|' && tile !== '-' && tile !== '+' && tile !== '#' && tile !== 'X';
+    }
+
+    getTile(x, y) {
+        return this.tiles[y] ? this.tiles[y][x] : undefined;
+    }
+
+    setTile(x, y, value) {
+        if (this.tiles[y] && this.tiles[y][x] !== undefined) {
+            this.tiles[y][x] = value;
         }
     }
 
-    handleUndo() {
-        // Simple undo - restore the last deleted line
-        if (this.clipboard.length > 0) {
-            const y = this.player.y;
-            for (let x = 1; x < this.gridWidth - 1 && x < this.clipboard.length; x++) {
-                if (this.clipboard[x] !== '║') {
-                    this.currentRoomData.tiles[y][x] = this.clipboard[x];
+    jumpWord(direction) {
+        const row = this.tiles[this.player.y];
+        if (direction > 0) {
+            for (let x = this.player.x + 1; x < this.gridWidth - 1; x += 1) {
+                const current = row[x];
+                const previous = row[x - 1];
+                if (current !== ' ' && previous === ' ' && this.isWalkable(x, this.player.y)) {
+                    this.player.x = x;
+                    this.checkTileEvents();
+                    return;
                 }
             }
-            this.addMessage("Undone with u", "success");
         } else {
-            this.addMessage("Nothing to undo!", "error");
-        }
-    }
-
-    checkObjectives() {
-        const tile = this.currentRoomData.tiles[this.player.y][this.player.x];
-        
-        if (tile === 'E') {
-            this.addMessage("Congratulations! You reached the exit!", "success");
-            
-            if (this.currentRoom === 'tutorial') {
-                this.addMessage("Tutorial complete! Advancing to Level 2...", "success");
-                setTimeout(() => this.advanceLevel(), 1500);
-            } else if (this.currentRoom === 'advanced') {
-                this.addMessage("Advanced level complete! Advancing to Level 3...", "success");
-                setTimeout(() => this.advanceLevel(), 1500);
+            for (let x = this.player.x - 1; x > 0; x -= 1) {
+                const current = row[x];
+                const previous = row[x - 1];
+                if (current !== ' ' && previous === ' ' && this.isWalkable(x, this.player.y)) {
+                    this.player.x = x;
+                    this.checkTileEvents();
+                    return;
+                }
             }
-        } else if (tile === 'M') {
-            this.addMessage("Congratulations! You are now a Vim Master!", "success");
-            this.addMessage("You've completed all levels! 🎉", "success");
         }
+
+        this.addMessage('No word jump available', 'error');
     }
+
+    jumpLineEdge(side) {
+        if (side === 'start') {
+            for (let x = 1; x < this.gridWidth - 1; x += 1) {
+                if (this.isWalkable(x, this.player.y)) {
+                    this.player.x = x;
+                    this.checkTileEvents();
+                    return;
+                }
+            }
+        } else {
+            for (let x = this.gridWidth - 2; x > 0; x -= 1) {
+                if (this.isWalkable(x, this.player.y)) {
+                    this.player.x = x;
+                    this.checkTileEvents();
+                    return;
+                }
+            }
         }
     }
 
-    advanceLevel() {
-        if (this.currentRoomData.nextRoom) {
-            this.currentRoom = this.currentRoomData.nextRoom;
-            this.currentRoomData = this.rooms[this.currentRoom];
-            this.currentLevel = this.currentRoomData.level;
-            
-            // Reset player position
-            this.player = { x: 1, y: 1 };
-            
-            // Clear messages and add welcome
-            this.messageLog.innerHTML = '';
-            this.addMessage(`Welcome to Level ${this.currentLevel}!`, "success");
-            this.addMessage("Master advanced Vim commands to proceed.", "info");
-            
-            this.updateUI();
+    removeNearbyObstacle() {
+        const positions = [
+            [0, 0],
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+        ];
+
+        for (const [dx, dy] of positions) {
+            const x = this.player.x + dx;
+            const y = this.player.y + dy;
+            if (this.getTile(x, y) === '#') {
+                this.setTile(x, y, ' ');
+                this.lastChange = { type: 'tile', x, y, previous: '#', next: ' ' };
+                this.addMessage('Removed obstacle with x', 'success');
+                return;
+            }
+        }
+
+        this.addMessage('No # nearby', 'error');
+    }
+
+    deleteCurrentLine() {
+        const y = this.player.y;
+        const before = this.tiles[y].slice();
+
+        for (let x = 1; x < this.gridWidth - 1; x += 1) {
+            if (this.tiles[y][x] !== 'X') {
+                this.tiles[y][x] = ' ';
+            }
+        }
+
+        this.clipboard = before;
+        this.lastChange = { type: 'line', y, before, after: this.tiles[y].slice() };
+        this.addMessage('Deleted line with dd', 'success');
+
+        if (this.currentRoom === 'advanced' && (y === 8 || y === 9)) {
+            this.openAdvancedGate();
         }
     }
 
-    addMessage(text, type = "info") {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
-        messageDiv.textContent = text;
-        
-        this.messageLog.appendChild(messageDiv);
-        this.messageLog.scrollTop = this.messageLog.scrollHeight;
-        
-        // Keep only last 10 messages
-        while (this.messageLog.children.length > 10) {
-            this.messageLog.removeChild(this.messageLog.firstChild);
+    yankCurrentLine() {
+        this.clipboard = this.tiles[this.player.y].slice();
+        this.addMessage('Yanked current line with yy', 'success');
+    }
+
+    pasteBelow() {
+        if (!this.clipboard || !Array.isArray(this.clipboard)) {
+            this.addMessage('Clipboard is empty', 'error');
+            return;
+        }
+
+        const y = this.player.y + 1;
+        if (y >= this.gridHeight - 1) {
+            this.addMessage('No room to paste', 'error');
+            return;
+        }
+
+        const before = this.tiles[y].slice();
+        for (let x = 1; x < this.gridWidth - 1; x += 1) {
+            this.tiles[y][x] = this.clipboard[x] === '|' ? ' ' : this.clipboard[x];
+        }
+        this.lastChange = { type: 'line', y, before, after: this.tiles[y].slice() };
+        this.addMessage('Pasted below with p', 'success');
+    }
+
+    undoLastChange() {
+        if (!this.lastChange) {
+            this.addMessage('Nothing to undo', 'error');
+            return;
+        }
+
+        if (this.lastChange.type === 'line') {
+            this.tiles[this.lastChange.y] = this.lastChange.before.slice();
+        }
+        if (this.lastChange.type === 'tile') {
+            this.setTile(this.lastChange.x, this.lastChange.y, this.lastChange.previous);
+        }
+
+        this.addMessage('Undid last change', 'success');
+        this.lastChange = null;
+    }
+
+    openAdvancedGate() {
+        if (this.flags.level2GateOpen) {
+            return;
+        }
+
+        this.flags.level2GateOpen = true;
+        for (let x = 18; x <= 25; x += 1) {
+            this.setTile(x, 11, ' ');
+        }
+        this.addMessage('The level 2 gate opens', 'success');
+    }
+
+    search(term, direction) {
+        if (!term) {
+            this.addMessage('Search term is empty', 'error');
+            return;
+        }
+
+        const positions = [];
+        for (let y = 1; y < this.gridHeight - 1; y += 1) {
+            for (let x = 1; x < this.gridWidth - term.length; x += 1) {
+                let candidate = '';
+                for (let i = 0; i < term.length; i += 1) {
+                    candidate += this.tiles[y][x + i];
+                }
+                if (candidate.toLowerCase() === term.toLowerCase()) {
+                    positions.push({ x, y });
+                }
+            }
+        }
+
+        if (!positions.length) {
+            this.addMessage(`No match for ${term}`, 'error');
+            return;
+        }
+
+        let target = null;
+        if (direction > 0) {
+            target = positions.find((pos) => pos.y > this.player.y || (pos.y === this.player.y && pos.x > this.player.x));
+            if (!target) {
+                target = positions[0];
+            }
+        } else {
+            const reversed = positions.slice().reverse();
+            target = reversed.find((pos) => pos.y < this.player.y || (pos.y === this.player.y && pos.x < this.player.x));
+            if (!target) {
+                target = reversed[0];
+            }
+        }
+
+        this.player = { ...target };
+        if (this.currentRoom === 'master') {
+            this.flags.level3SearchDone = true;
+        }
+        this.addMessage(`Found ${term}`, 'success');
+        this.checkTileEvents();
+    }
+
+    findCharacter(char, direction) {
+        const row = this.tiles[this.player.y];
+        if (direction > 0) {
+            for (let x = this.player.x + 1; x < this.gridWidth - 1; x += 1) {
+                if (row[x].toLowerCase() === char.toLowerCase()) {
+                    this.player.x = x;
+                    if (this.currentRoom === 'master') {
+                        this.flags.level3FindDone = true;
+                    }
+                    this.addMessage(`Found ${char}`, 'success');
+                    this.checkTileEvents();
+                    return;
+                }
+            }
+        } else {
+            for (let x = this.player.x - 1; x > 0; x -= 1) {
+                if (row[x].toLowerCase() === char.toLowerCase()) {
+                    this.player.x = x;
+                    if (this.currentRoom === 'master') {
+                        this.flags.level3FindDone = true;
+                    }
+                    this.addMessage(`Found ${char}`, 'success');
+                    this.checkTileEvents();
+                    return;
+                }
+            }
+        }
+
+        this.addMessage(`Could not find ${char}`, 'error');
+    }
+
+    substitute(command) {
+        const match = command.match(/^:s\/([^/]*)\/([^/]*)$/);
+        if (!match) {
+            this.addMessage('Use :s/old/new', 'error');
+            return;
+        }
+
+        const oldText = match[1];
+        const newText = match[2];
+        const y = this.player.y;
+        const lineString = this.tiles[y].join('');
+        const index = lineString.indexOf(oldText);
+
+        if (index === -1) {
+            this.addMessage(`Pattern not found: ${oldText}`, 'error');
+            return;
+        }
+
+        const before = this.tiles[y].slice();
+        for (let i = 0; i < oldText.length; i += 1) {
+            this.tiles[y][index + i] = i < newText.length ? newText[i] : ' ';
+        }
+        for (let i = oldText.length; i < newText.length; i += 1) {
+            if (index + i < this.gridWidth - 1) {
+                this.tiles[y][index + i] = newText[i];
+            }
+        }
+        this.lastChange = { type: 'line', y, before, after: this.tiles[y].slice() };
+        this.addMessage(`Substituted ${oldText} -> ${newText}`, 'success');
+    }
+
+    yankSelection() {
+        const cells = this.getSelectionCells();
+        if (!cells.length) {
+            this.addMessage('No visual selection', 'error');
+            return;
+        }
+
+        this.clipboard = cells.map(({ x, y }) => ({ x, y, value: this.getTile(x, y) }));
+        if (this.currentRoom === 'master') {
+            this.flags.level3VisualDone = true;
+        }
+        this.addMessage('Yanked visual selection', 'success');
+    }
+
+    deleteSelection() {
+        const cells = this.getSelectionCells();
+        if (!cells.length) {
+            this.addMessage('No visual selection', 'error');
+            return;
+        }
+
+        const before = cells.map(({ x, y }) => ({ x, y, value: this.getTile(x, y) }));
+        for (const cell of cells) {
+            if (this.getTile(cell.x, cell.y) !== '|' && this.getTile(cell.x, cell.y) !== '-' && this.getTile(cell.x, cell.y) !== '+') {
+                this.setTile(cell.x, cell.y, ' ');
+            }
+        }
+        this.lastChange = { type: 'selection', before };
+        this.addMessage('Deleted visual selection', 'success');
+    }
+
+    getSelectionCells() {
+        if (!this.visualStart) {
+            return [];
+        }
+
+        const minX = Math.min(this.visualStart.x, this.player.x);
+        const maxX = Math.max(this.visualStart.x, this.player.x);
+        const minY = Math.min(this.visualStart.y, this.player.y);
+        const maxY = Math.max(this.visualStart.y, this.player.y);
+        const cells = [];
+
+        for (let y = minY; y <= maxY; y += 1) {
+            for (let x = minX; x <= maxX; x += 1) {
+                cells.push({ x, y });
+            }
+        }
+
+        return cells;
+    }
+
+    checkTileEvents() {
+        const tile = this.getTile(this.player.x, this.player.y);
+        if (tile === 'E') {
+            const nextRoom = this.currentRoomData.nextRoom;
+            if (nextRoom) {
+                this.addMessage('Level cleared', 'success');
+                window.setTimeout(() => this.loadRoom(nextRoom), 250);
+            }
+        }
+        if (tile === 'M') {
+            this.addMessage('You completed Vim Quest', 'success');
         }
     }
 
     updateUI() {
         this.modeDisplay.textContent = this.mode.toUpperCase();
-        this.levelDisplay.textContent = this.currentLevel;
+        this.levelDisplay.textContent = String(this.currentLevel);
         this.roomDisplay.textContent = this.currentRoomData.name;
-        
-        const objective = this.currentRoomData.objectives[this.currentRoomData.currentObjective];
-        if (objective) {
-            this.hintText.textContent = objective;
+        this.hintText.textContent = this.currentRoomData.objective();
+    }
+
+    addMessage(text, type = 'info') {
+        const node = document.createElement('div');
+        node.className = `message ${type}`;
+        node.textContent = text;
+        this.messageLog.appendChild(node);
+        while (this.messageLog.children.length > 8) {
+            this.messageLog.removeChild(this.messageLog.firstChild);
+        }
+        this.messageLog.scrollTop = this.messageLog.scrollHeight;
+    }
+
+    renderTile(char, x, y) {
+        if (char === ' ') {
+            return;
+        }
+
+        const palette = {
+            '|': '#5d6b75',
+            '-': '#5d6b75',
+            '+': '#5d6b75',
+            '#': '#f18f01',
+            'X': '#d1495b',
+            '*': '#ff66cc',
+            'E': '#4caf50',
+            'M': '#ffd166',
+        };
+
+        this.ctx.fillStyle = palette[char] || '#d7e3ea';
+        this.ctx.fillText(
+            char,
+            x * this.cellSize + this.cellSize / 2,
+            y * this.cellSize + this.cellSize / 2
+        );
+    }
+
+    renderSelection() {
+        if (this.mode !== 'visual' || !this.visualStart) {
+            return;
+        }
+
+        const cells = this.getSelectionCells();
+        this.ctx.fillStyle = 'rgba(255, 0, 128, 0.25)';
+        for (const cell of cells) {
+            this.ctx.fillRect(
+                cell.x * this.cellSize,
+                cell.y * this.cellSize,
+                this.cellSize,
+                this.cellSize
+            );
         }
     }
 
+    renderCommandBuffer() {
+        if (this.mode !== 'command') {
+            return;
+        }
+
+        this.ctx.fillStyle = '#111';
+        this.ctx.fillRect(0, this.canvas.height - 24, this.canvas.width, 24);
+        this.ctx.fillStyle = '#ffb703';
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText(this.commandBuffer, 8, this.canvas.height - 12);
+        this.ctx.textAlign = 'center';
+    }
+
     render() {
-        // Clear canvas
         this.ctx.fillStyle = '#111';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Set up text rendering
         this.ctx.font = '16px Courier New';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        
-        // Render grid
-        for (let y = 0; y < this.gridHeight; y++) {
-            for (let x = 0; x < this.gridWidth; x++) {
-                const char = this.currentRoomData.tiles[y][x];
-                if (char !== ' ') {
-                    // Color coding for different elements
-                    if (char === '═' || char === '║' || char === '╔' || char === '╗' || char === '╚' || char === '╝') {
-                        this.ctx.fillStyle = '#666';
-                    } else if (char === '#') {
-                        this.ctx.fillStyle = '#ff6600';
-                    } else if (char === '▓') {
-                        this.ctx.fillStyle = '#ff0000';
-                    } else if (char === '♦') {
-                        this.ctx.fillStyle = '#ff00ff';
-                    } else if (char === 'E') {
-                        this.ctx.fillStyle = '#00ff00';
-                    } else if (char === 'M') {
-                        this.ctx.fillStyle = '#ffff00';
-                    } else if (char === '?') {
-                        this.ctx.fillStyle = '#00ffff';
-                    } else {
-                        this.ctx.fillStyle = '#cccccc';
-                    }
-                    
-                    this.ctx.fillText(
-                        char,
-                        x * this.cellSize + this.cellSize / 2,
-                        y * this.cellSize + this.cellSize / 2
-                    );
-                }
+
+        this.renderSelection();
+
+        for (let y = 0; y < this.gridHeight; y += 1) {
+            for (let x = 0; x < this.gridWidth; x += 1) {
+                this.renderTile(this.tiles[y][x], x, y);
             }
         }
-        
-        // Render player (blinking cursor)
+
         if (this.cursorVisible) {
-            if (this.mode === 'insert') {
-                this.ctx.fillStyle = '#ffff00';
-            } else if (this.mode === 'visual') {
-                this.ctx.fillStyle = '#ff00ff';
-            } else if (this.mode === 'command') {
-                this.ctx.fillStyle = '#ff8800';
-            } else {
-                this.ctx.fillStyle = '#00ffff';
-            }
-            
+            const colors = {
+                normal: '#7bdff2',
+                insert: '#f4d35e',
+                visual: '#ee6caa',
+                command: '#ff9f1c',
+            };
+            this.ctx.fillStyle = colors[this.mode] || '#7bdff2';
             this.ctx.fillText(
                 '@',
                 this.player.x * this.cellSize + this.cellSize / 2,
                 this.player.y * this.cellSize + this.cellSize / 2
             );
         }
+
+        this.renderCommandBuffer();
     }
 
     gameLoop() {
-        const currentTime = Date.now();
-        
-        // Blink cursor every 500ms
-        if (currentTime - this.lastBlinkTime > 500) {
+        const now = Date.now();
+        if (now - this.lastBlinkTime > 450) {
             this.cursorVisible = !this.cursorVisible;
-            this.lastBlinkTime = currentTime;
+            this.lastBlinkTime = now;
         }
-        
         this.render();
-        requestAnimationFrame(() => this.gameLoop());
-        }
-    }
-
-    executeCommand(command) {
-        if (command.startsWith('/') && command.length > 1) {
-            // Level navigation commands
-            if (command === '/1') {
-                this.goToLevel(1, 'tutorial');
-                return;
-            }
-            if (command === '/2') {
-                this.goToLevel(2, 'advanced');
-                return;
-            }
-            if (command === '/3') {
-                this.goToLevel(3, 'master');
-                return;
-            }
-            
-            // Search functionality
-            this.searchForward(command.substring(1));
-        } else if (command.startsWith('?') && command.length > 1) {
-            this.searchBackward(command.substring(1));
-        } else if (command.startsWith('f') && command.length === 2) {
-            this.findCharacter(command[1], true);
-        } else if (command.startsWith('F') && command.length === 2) {
-            this.findCharacter(command[1], false);
-        } else if (command.startsWith(':') && command.length > 1) {
-            this.executeColonCommand(command.substring(1));
-        } else {
-            this.addMessage("Unknown command: " + command, "error");
-        }
-    }
-
-    goToLevel(level, room) {
-        if (this.rooms[room]) {
-            this.currentRoom = room;
-            this.currentLevel = level;
-            this.currentRoomData = this.rooms[this.currentRoom];
-            this.player = { x: 1, y: 1 };
-            this.addMessage(`Teleported to Level ${level}`, "success");
-            this.updateUI();
-        }
-    }
-
-    searchForward(term) {
-        this.searchTerm = term;
-        for (let y = this.player.y; y < this.gridHeight; y++) {
-            const startX = (y === this.player.y) ? this.player.x + 1 : 1;
-            for (let x = startX; x < this.gridWidth - 1; x++) {
-                if (this.matchesSearchTerm(x, y, term)) {
-                    this.player.x = x;
-                    this.player.y = y;
-                    this.addMessage(`Found: ${term}`, "success");
-                    return;
-                }
-            }
-        }
-        this.addMessage(`Not found: ${term}`, "error");
-    }
-
-    searchBackward(term) {
-        this.searchTerm = term;
-        for (let y = this.player.y; y >= 1; y--) {
-            const endX = (y === this.player.y) ? this.player.x - 1 : this.gridWidth - 2;
-            for (let x = endX; x >= 1; x--) {
-                if (this.matchesSearchTerm(x, y, term)) {
-                    this.player.x = x;
-                    this.player.y = y;
-                    this.addMessage(`Found: ${term}`, "success");
-                    return;
-                }
-            }
-        }
-        this.addMessage(`Not found: ${term}`, "error");
-    }
-
-    matchesSearchTerm(x, y, term) {
-        let match = '';
-        for (let i = 0; i < term.length; i++) {
-            if (x + i >= this.gridWidth - 1) return false;
-            match += this.currentRoomData.tiles[y][x + i];
-        }
-        return match.toLowerCase() === term.toLowerCase();
-    }
-
-    findCharacter(char, forward) {
-        const row = this.currentRoomData.tiles[this.player.y];
-        if (forward) {
-            for (let x = this.player.x + 1; x < this.gridWidth - 1; x++) {
-                if (row[x].toLowerCase() === char.toLowerCase()) {
-                    this.player.x = x;
-                    this.addMessage(`Found: ${char}`, "success");
-                    return;
-                }
-            }
-        } else {
-            for (let x = this.player.x - 1; x >= 1; x--) {
-                if (row[x].toLowerCase() === char.toLowerCase()) {
-                    this.player.x = x;
-                    this.addMessage(`Found: ${char}`, "success");
-                    return;
-                }
-            }
-        }
-        this.addMessage(`Not found: ${char}`, "error");
-    }
-
-    executeColonCommand(command) {
-        if (command.startsWith('s/') || command.startsWith('substitute/')) {
-            this.handleSubstitute(command);
-        } else {
-            this.addMessage("Unknown colon command: :" + command, "error");
-        }
-    }
-
-    handleSubstitute(command) {
-        // Simple s/old/new implementation
-        const parts = command.split('/');
-        if (parts.length >= 3) {
-            const old = parts[1];
-            const newText = parts[2];
-            const currentRow = this.currentRoomData.tiles[this.player.y];
-            
-            // Find and replace on current line
-            for (let x = 1; x < this.gridWidth - 1; x++) {
-                if (this.matchesSearchTerm(x, this.player.y, old)) {
-                    // Replace the text
-                    for (let i = 0; i < Math.max(old.length, newText.length); i++) {
-                        if (x + i < this.gridWidth - 1) {
-                            this.currentRoomData.tiles[this.player.y][x + i] = 
-                                i < newText.length ? newText[i] : ' ';
-                        }
-                    }
-                    this.addMessage(`Substituted: ${old} → ${newText}`, "success");
-                    return;
-                }
-            }
-            this.addMessage(`Pattern not found: ${old}`, "error");
-        } else {
-            this.addMessage("Invalid substitute syntax", "error");
-        }
-    }
-
-    deleteSelection() {
-        if (this.visualStart) {
-            this.addMessage("Deleted visual selection", "success");
-            // Simple implementation - just clear the current position
-            this.currentRoomData.tiles[this.player.y][this.player.x] = ' ';
-        }
-    }
-
-    yankSelection() {
-        if (this.visualStart) {
-            this.addMessage("Yanked visual selection", "success");
-            // Simple implementation - copy current character
-            this.clipboard = this.currentRoomData.tiles[this.player.y][this.player.x];
-        }
-    }
-
-    addMessage(text, type = "info") {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
-        messageDiv.textContent = text;
-        
-        this.messageLog.appendChild(messageDiv);
-        this.messageLog.scrollTop = this.messageLog.scrollHeight;
-        
-        // Keep only last 10 messages
-        while (this.messageLog.children.length > 10) {
-            this.messageLog.removeChild(this.messageLog.firstChild);
-        }
-    }
-
-    updateUI() {
-        this.modeDisplay.textContent = this.mode.toUpperCase();
-        this.levelDisplay.textContent = this.currentLevel;
-        this.roomDisplay.textContent = this.currentRoomData.name;
-        
-        const objective = this.currentRoomData.objectives[this.currentRoomData.currentObjective];
-        if (objective) {
-            this.hintText.textContent = objective;
-        }
-    }
-
-    gameLoop() {
-        const currentTime = Date.now();
-        
-        // Blink cursor every 500ms
-        if (currentTime - this.lastBlinkTime > 500) {
-            this.cursorVisible = !this.cursorVisible;
-            this.lastBlinkTime = currentTime;
-        }
-        
-        this.render();
-        requestAnimationFrame(() => this.gameLoop());
+        window.requestAnimationFrame(() => this.gameLoop());
     }
 }
 
-// Initialize game when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Vim Quest initializing...');
-    try {
-        const game = new VimQuest();
-        console.log('Vim Quest started successfully!');
-    } catch (error) {
-        console.error('Vim Quest error:', error);
-    }
+    new VimQuest();
 });
