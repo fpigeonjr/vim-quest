@@ -19,6 +19,8 @@ class VimQuest {
         this.mode = 'normal';  // 'normal', 'insert', 'visual', or 'command'
         this.commandBuffer = ''; // For storing command input
         this.searchTerm = ''; // For search operations
+        this.visualStart = null; // For visual mode selection
+        this.pendingKey = null; // For double-key commands (dd, yy)
         
         // UI elements
         this.modeDisplay = document.getElementById('mode-display');
@@ -272,6 +274,21 @@ class VimQuest {
     handleNormalMode(key) {
         const oldPos = { ...this.player };
         
+        // Handle double-key commands (dd, yy)
+        if (this.pendingKey) {
+            if ((this.pendingKey === 'd' && key === 'd') || 
+                (this.pendingKey === 'y' && key === 'y')) {
+                // Execute the double-key command
+                if (this.pendingKey === 'd') this.handleDelete();
+                if (this.pendingKey === 'y') this.handleYank();
+                this.pendingKey = null;
+                return;
+            } else {
+                // Different key pressed, reset pending and process new key
+                this.pendingKey = null;
+            }
+        }
+        
         switch (key) {
             case 'h': // Move left
                 this.movePlayer(-1, 0);
@@ -304,11 +321,13 @@ class VimQuest {
                 this.mode = 'insert';
                 this.addMessage("-- INSERT --", "info");
                 break;
-            case 'd': // Delete operations
-                this.handleDelete();
+            case 'd': // Delete operations - wait for second 'd'
+                this.pendingKey = 'd';
+                this.addMessage("dd: delete line", "info");
                 break;
-            case 'y': // Yank (copy) operations
-                this.handleYank();
+            case 'y': // Yank (copy) operations - wait for second 'y'
+                this.pendingKey = 'y';
+                this.addMessage("yy: yank line", "info");
                 break;
             case 'p': // Paste
                 this.handlePaste();
@@ -954,5 +973,11 @@ class VimQuest {
 
 // Initialize game when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    const game = new VimQuest();
+    console.log('Vim Quest initializing...');
+    try {
+        const game = new VimQuest();
+        console.log('Vim Quest started successfully!');
+    } catch (error) {
+        console.error('Vim Quest error:', error);
+    }
 });
