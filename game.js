@@ -167,7 +167,18 @@ class VimQuest {
         }
 
         this.addMessage(`Entered Level ${room.level}: ${room.name}`, 'success');
+        this.addMessage(this.getOnboardingMessage(roomKey), 'info');
         this.updateUI();
+    }
+
+    getOnboardingMessage(roomKey) {
+        if (roomKey === 'tutorial') {
+            return 'Use h/j/k/l to move, w/b to jump words, x near #, and i on *.';
+        }
+        if (roomKey === 'advanced') {
+            return 'Use dd to delete, yy to yank, p to paste below, and u to undo.';
+        }
+        return 'Use /word, fx, v, and :s/old/new. Command inputs execute on Enter.';
     }
 
     handleKeyDown(event) {

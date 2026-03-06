@@ -1,0 +1,10 @@
+{
+  "name": "vim-quest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A browser-based Vim adventure game.",
+  "scripts": {
+    "dev": "python3 -m http.server 8080",
+    "start": "python3 -m http.server 8080"
+  }
+}
