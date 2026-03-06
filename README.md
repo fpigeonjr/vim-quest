@@ -78,3 +78,8 @@ open http://localhost:8080
 - Make command behavior closer to real Vim
 - Add a title screen and better in-game onboarding
 - Add tests for room logic and command parsing
+
+## Planning Docs
+
+- `docs/spec.md` product spec and phased roadmap
+- `docs/tasks.md` lightweight execution board
