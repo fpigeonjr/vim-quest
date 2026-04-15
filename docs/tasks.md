@@ -4,20 +4,20 @@ Use this file as the lightweight execution checklist derived from `docs/spec.md`
 
 ## Current Focus
 
-- Replatform the project from the prototype runtime to `Phaser + TypeScript + Vite`
+- Build Wave 1 on top of the new Phaser foundation
+- Expand the scrolling overworld into the first real tutorial region
+- Add the first dungeon entrance and scripted lesson flow
 
 ## Ready Next
 
-- Create Phaser scene skeleton
-- Add boot, preload, world, and UI scenes
-- Add a scrolling test map
-- Add player movement and camera follow
-- Add unlock registry for early commands
+- Add a dungeon or shrine scene transition
+- Replace the placeholder meadow with authored tilemap content
+- Add persistent save data for unlocked commands
+- Refine word-jump and line-snap puzzle interactions
+- Add NPC mentor dialogue and command teaching beats
 
 ## Later
 
-- Replace hardcoded room content with tilemaps and data files
-- Add save/load
-- Build first tutorial region
-- Build first dungeon
-- Add command progression HUD
+- Replace generated textures with a proper tileset pass
+- Add enemies and pressure-based command challenges
+- Add more command families after the first zone feels good

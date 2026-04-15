@@ -13,18 +13,28 @@ Vim Quest is a browser-based puzzle adventure inspired by Vim Adventures and old
 
 You can open `index.html` directly, but a local server is more reliable for development.
 
-### Option 1: open the file directly
+### Install dependencies
 
 ```bash
-open index.html
+corepack enable
+corepack pnpm install
 ```
 
-### Option 2: use a simple local server
+### Run the Phaser app
 
 ```bash
-python3 -m http.server 8080
-open http://localhost:8080
+corepack pnpm dev
 ```
+
+### Build for production
+
+```bash
+corepack pnpm build
+```
+
+### Note
+
+The old single-file prototype has been replaced by the Phaser rewrite. Current development now happens in `src/`, and the app should be run through Vite.
 
 ## Controls
 
@@ -69,8 +79,10 @@ open http://localhost:8080
 
 ## Project Files
 
-- `index.html` UI shell and styling
-- `game.js` game loop, rendering, rooms, and input handling
+- `index.html` Vite entry HTML
+- `src/` Phaser scenes, game systems, and content
+- `docs/spec.md` product and architecture roadmap
+- `docs/tasks.md` execution board
 
 ## Roadmap
 

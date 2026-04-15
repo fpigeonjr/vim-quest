@@ -414,19 +414,19 @@ The vertical slice is the most important milestone. It should prove the game is 
 
 ### Milestone 0: Replatform
 
-- [ ] Add Phaser
-- [ ] Add TypeScript
-- [ ] Add Vite
-- [ ] Create scene structure
-- [ ] Replace prototype entrypoint
+- [x] Add Phaser
+- [x] Add TypeScript
+- [x] Add Vite
+- [x] Create scene structure
+- [x] Replace prototype entrypoint
 
 ### Milestone 1: Engine Foundation
 
-- [ ] Camera follow
-- [ ] Tilemap loading
-- [ ] Collision layers
-- [ ] Player entity
-- [ ] UI scene
+- [x] Camera follow
+- [x] Tilemap loading
+- [x] Collision layers
+- [x] Player entity
+- [x] UI scene
 
 ### Milestone 2: Vertical Slice
 

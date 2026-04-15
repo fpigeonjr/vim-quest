@@ -2,9 +2,20 @@
   "name": "vim-quest",
   "version": "0.1.0",
   "private": true,
-  "description": "A browser-based Vim adventure game.",
+  "type": "module",
+  "description": "A browser-based Vim adventure game built with Phaser.",
   "scripts": {
-    "dev": "python3 -m http.server 8080",
-    "start": "python3 -m http.server 8080"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "start": "vite"
+  },
+  "packageManager": "pnpm@9.15.4+sha256.9bee59c7313a216722c079c1e22160dea7f88df4e0c3450b1d7b01b882336c6a",
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^5.4.19"
   }
 }

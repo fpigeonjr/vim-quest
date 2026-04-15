@@ -1,0 +1,287 @@
+import Phaser from 'phaser';
+import { TILE_SIZE } from '../game/config';
+
+// Tile IDs (0-indexed in the tileset)
+export const TILE_IDS = {
+  grass: 0,
+  path: 1,
+  wall: 2,
+  water: 3,
+  shrine: 4,
+  marker: 5,
+  console: 6,
+  bridge: 7,
+  crate: 8,
+} as const;
+
+export type TileId = (typeof TILE_IDS)[keyof typeof TILE_IDS];
+
+// Map tile IDs to texture keys for dynamically generated textures
+export const tileTextureMap: Record<number, string> = {
+  [TILE_IDS.grass]: 'tile-grass',
+  [TILE_IDS.path]: 'tile-path',
+  [TILE_IDS.wall]: 'tile-wall',
+  [TILE_IDS.water]: 'tile-water',
+  [TILE_IDS.shrine]: 'tile-shrine',
+  [TILE_IDS.marker]: 'tile-marker',
+  [TILE_IDS.console]: 'tile-console',
+  [TILE_IDS.bridge]: 'tile-bridge',
+  [TILE_IDS.crate]: 'tile-crate',
+};
+
+// Tiles that block player movement
+export const BLOCKED_TILES = new Set<number>([
+  TILE_IDS.wall,
+  TILE_IDS.water,
+  TILE_IDS.crate,
+]);
+
+// Shrine locations from the original overworld.ts
+export const SHRINES = [
+  {
+    x: 14,
+    y: 6,
+    unlock: ['w', 'b'],
+    title: 'Word Shrine',
+    hint: 'Unlocked w and b. Use them on the marker road in the south corridor.',
+  },
+  {
+    x: 8,
+    y: 18,
+    unlock: ['0', '$'],
+    title: 'Line Shrine',
+    hint: 'Unlocked 0 and $. Snap to the start or end of the marker road.',
+  },
+  {
+    x: 20,
+    y: 22,
+    unlock: ['x'],
+    title: 'Operator Shrine',
+    hint: 'Unlocked x. Break nearby crates to open paths.',
+  },
+  {
+    x: 29,
+    y: 22,
+    unlock: ['i'],
+    title: 'Insert Shrine',
+    hint: 'Unlocked i. Enter insert mode near the console at the river crossing.',
+  },
+  {
+    x: 40,
+    y: 22,
+    unlock: [],
+    title: 'Wave 1 Gate',
+    hint: 'You reached the Wave 1 goal. Next up: dungeon flow and scripted lessons.',
+  },
+] as const;
+
+export const MARKER_ROW_Y = 22;
+export const MARKER_POINTS = [13, 18, 24, 30, 36, 43];
+export const CONSOLE_POSITION = { x: 29, y: 13 };
+
+export interface TilemapData {
+  width: number;
+  height: number;
+  mapData: number[][];
+  blockedTiles: Array<{ x: number; y: number; tileId: number }>;
+  tileImages: Map<string, Phaser.GameObjects.Image>;
+  colliders: Map<string, Phaser.GameObjects.Rectangle>;
+  scene: Phaser.Scene;
+  player: Phaser.Physics.Arcade.Sprite | null;
+}
+
+/**
+ * Creates the overworld map using individual tile images
+ * This is simpler than using Phaser's tilemap system and works better with generated textures
+ */
+export function createOverworldTilemap(scene: Phaser.Scene): TilemapData {
+  // Map dimensions
+  const width = 60;
+  const height = 34;
+
+  // Build the map data
+  const mapData = generateOverworldData(width, height);
+
+  // Track blocked tiles for collision setup later
+  const blockedTiles: Array<{ x: number; y: number; tileId: number }> = [];
+
+  // Track tile images for later modification
+  const tileImages = new Map<string, Phaser.GameObjects.Image>();
+
+  // Track collision bodies
+  const colliders = new Map<string, Phaser.GameObjects.Rectangle>();
+
+  // Populate tiles
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const tileId = mapData[y][x];
+
+      // Create an image for this tile
+      const textureKey = tileTextureMap[tileId];
+      if (textureKey) {
+        const image = scene.add.image(
+          x * TILE_SIZE + TILE_SIZE / 2,
+          y * TILE_SIZE + TILE_SIZE / 2,
+          textureKey
+        );
+        image.setDepth(0);
+        tileImages.set(`${x},${y}`, image);
+
+        // Track blocked tiles
+        if (BLOCKED_TILES.has(tileId)) {
+          blockedTiles.push({ x, y, tileId });
+        }
+      }
+    }
+  }
+
+  return { width, height, mapData, blockedTiles, tileImages, colliders, scene, player: null };
+}
+
+/**
+ * Create collision objects for blocked tiles
+ * Call this from the scene's create method after physics is ready
+ */
+export function createTileCollisions(
+  scene: Phaser.Scene,
+  tilemapData: TilemapData,
+  player: Phaser.Physics.Arcade.Sprite,
+): void {
+  const { blockedTiles, colliders } = tilemapData;
+
+  // Store player reference for later collision updates
+  tilemapData.player = player;
+
+  // Create static physics bodies for each blocked tile
+  blockedTiles.forEach(({ x, y }) => {
+    const collider = scene.add.rectangle(
+      x * TILE_SIZE + TILE_SIZE / 2,
+      y * TILE_SIZE + TILE_SIZE / 2,
+      TILE_SIZE,
+      TILE_SIZE
+    );
+    scene.physics.add.existing(collider, true);
+    scene.physics.add.collider(player, collider);
+    colliders.set(`${x},${y}`, collider);
+  });
+}
+
+/**
+ * Generate overworld map data (ported from original overworld.ts)
+ */
+function generateOverworldData(width: number, height: number): number[][] {
+  const data = Array.from({ length: height }, () => Array(width).fill(TILE_IDS.grass));
+
+  // Outer walls
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+        data[y][x] = TILE_IDS.wall;
+      }
+    }
+  }
+
+  // Northern path area
+  for (let x = 2; x < 18; x++) {
+    data[5][x] = TILE_IDS.path;
+    data[6][x] = TILE_IDS.path;
+  }
+
+  // Vertical path
+  for (let y = 5; y < 24; y++) {
+    data[y][8] = TILE_IDS.path;
+    data[y][9] = TILE_IDS.path;
+  }
+
+  // Southern corridor
+  for (let x = 8; x < 48; x++) {
+    data[22][x] = TILE_IDS.path;
+    data[23][x] = TILE_IDS.path;
+  }
+
+  // River/water
+  for (let x = 20; x < 52; x++) {
+    data[10][x] = TILE_IDS.water;
+    data[11][x] = TILE_IDS.water;
+    data[12][x] = TILE_IDS.water;
+  }
+
+  // River extension
+  for (let y = 10; y < 20; y++) {
+    data[y][38] = TILE_IDS.water;
+  }
+
+  // Shrines
+  data[6][14] = TILE_IDS.shrine;
+  data[18][8] = TILE_IDS.shrine;
+  data[22][20] = TILE_IDS.shrine;
+  data[22][29] = TILE_IDS.shrine;
+  data[22][40] = TILE_IDS.shrine;
+
+  // Console (bridge tiles are added dynamically when activated)
+  data[13][29] = TILE_IDS.console;
+
+  // Crates
+  data[16][45] = TILE_IDS.crate;
+  data[16][46] = TILE_IDS.crate;
+  data[17][45] = TILE_IDS.crate;
+
+  // Markers on the southern road
+  for (const x of MARKER_POINTS) {
+    data[22][x] = TILE_IDS.marker;
+  }
+
+  return data;
+}
+
+/**
+ * Get tile ID at world coordinates
+ */
+export function getTileAt(
+  tilemapData: TilemapData,
+  worldX: number,
+  worldY: number,
+): { x: number; y: number; id: number } {
+  const x = Phaser.Math.Clamp(Math.floor(worldX / TILE_SIZE), 0, tilemapData.width - 1);
+  const y = Phaser.Math.Clamp(Math.floor(worldY / TILE_SIZE), 0, tilemapData.height - 1);
+
+  const id = tilemapData.mapData[y]?.[x] ?? TILE_IDS.grass;
+
+  return { x, y, id };
+}
+
+/**
+ * Change a tile at specific coordinates
+ * This updates both the visual representation and removes collision if needed
+ */
+export function setTileAt(
+  tilemapData: TilemapData,
+  x: number,
+  y: number,
+  tileId: number,
+): void {
+  const { mapData, tileImages, colliders, scene, player } = tilemapData;
+
+  // Update the map data
+  if (y >= 0 && y < mapData.length && x >= 0 && x < mapData[0].length) {
+    mapData[y][x] = tileId;
+  }
+
+  // Update the visual image
+  const image = tileImages.get(`${x},${y}`);
+  if (image) {
+    const newTexture = tileTextureMap[tileId];
+    if (newTexture) {
+      image.setTexture(newTexture);
+    }
+  }
+
+  // If the new tile is NOT a blocked tile but there was a collider, remove it
+  const colliderKey = `${x},${y}`;
+  const existingCollider = colliders.get(colliderKey);
+  if (existingCollider && !BLOCKED_TILES.has(tileId)) {
+    // Destroy the physics body and game object
+    existingCollider.destroy();
+    colliders.delete(colliderKey);
+  }
+}
