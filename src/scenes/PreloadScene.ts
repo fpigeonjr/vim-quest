@@ -32,6 +32,25 @@ export class PreloadScene extends Phaser.Scene {
     makeTileTexture(this, 'tile-bridge', 0x8d6e63, 0x5d4037);
     makeTileTexture(this, 'tile-crate', 0xe76f51, 0x78290f);
 
+    // Flag tile — bright gold with a white cross, marks the Level 1 win condition
+    const flag = this.add.graphics();
+    flag.fillStyle(0xf1c40f, 1);
+    flag.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    flag.lineStyle(2, 0x8b5a00, 0.6);
+    flag.strokeRect(0, 0, TILE_SIZE, TILE_SIZE);
+    // Flagpole
+    flag.lineStyle(3, 0x8b5a00, 1);
+    flag.lineBetween(TILE_SIZE / 2, 4, TILE_SIZE / 2, TILE_SIZE - 4);
+    // Flag banner
+    flag.fillStyle(0xe74c3c, 1);
+    flag.fillTriangle(
+      TILE_SIZE / 2, 5,
+      TILE_SIZE - 6, 10,
+      TILE_SIZE / 2, 15,
+    );
+    flag.generateTexture('tile-flag', TILE_SIZE, TILE_SIZE);
+    flag.destroy();
+
     const player = this.add.graphics();
     player.fillStyle(0xf1fa8c, 1);
     player.fillRoundedRect(4, 4, TILE_SIZE - 8, TILE_SIZE - 8, 8);

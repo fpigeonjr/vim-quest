@@ -7,6 +7,7 @@ export type GameState = {
   unlockedCommands: string[];
   cratesDestroyed: number;
   gateUnlocked: boolean;
+  level1Complete: boolean;
 };
 
 export const defaultGameState = (): GameState => ({
@@ -16,6 +17,7 @@ export const defaultGameState = (): GameState => ({
   unlockedCommands: ['h', 'j', 'k', 'l', 'Esc'],
   cratesDestroyed: 0,
   gateUnlocked: false,
+  level1Complete: false,
 });
 
 export const REGISTRY_KEYS = {
