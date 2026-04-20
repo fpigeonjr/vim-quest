@@ -32,6 +32,25 @@ corepack pnpm dev
 corepack pnpm build
 ```
 
+## Play Online
+
+**Live at:** https://vim-quest.pages.dev/
+
+## Deploy
+
+The site is hosted on Cloudflare Pages. To deploy updates:
+
+```bash
+pnpm deploy
+```
+
+Or manually:
+
+```bash
+pnpm build
+wrangler pages deploy dist
+```
+
 ### Note
 
 The old single-file prototype has been replaced by the Phaser rewrite. Current development now happens in `src/`, and the app should be run through Vite.

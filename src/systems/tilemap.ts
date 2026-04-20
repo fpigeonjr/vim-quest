@@ -86,6 +86,7 @@ export interface TilemapData {
   blockedTiles: Array<{ x: number; y: number; tileId: number }>;
   tileImages: Map<string, Phaser.GameObjects.Image>;
   colliders: Map<string, Phaser.GameObjects.Rectangle>;
+  physicsColliders: Map<string, Phaser.Physics.Arcade.Collider>;
   scene: Phaser.Scene;
   player: Phaser.Physics.Arcade.Sprite | null;
 }
@@ -135,7 +136,7 @@ export function createOverworldTilemap(scene: Phaser.Scene): TilemapData {
     }
   }
 
-  return { width, height, mapData, blockedTiles, tileImages, colliders, scene, player: null };
+  return { width, height, mapData, blockedTiles, tileImages, colliders, physicsColliders: new Map(), scene, player: null };
 }
 
 /**
@@ -147,7 +148,7 @@ export function createTileCollisions(
   tilemapData: TilemapData,
   player: Phaser.Physics.Arcade.Sprite,
 ): void {
-  const { blockedTiles, colliders } = tilemapData;
+  const { blockedTiles, colliders, physicsColliders } = tilemapData;
 
   // Store player reference for later collision updates
   tilemapData.player = player;
@@ -161,8 +162,9 @@ export function createTileCollisions(
       TILE_SIZE
     );
     scene.physics.add.existing(collider, true);
-    scene.physics.add.collider(player, collider);
+    const physicsCollider = scene.physics.add.collider(player, collider);
     colliders.set(`${x},${y}`, collider);
+    physicsColliders.set(`${x},${y}`, physicsCollider);
   });
 }
 
@@ -260,7 +262,7 @@ export function setTileAt(
   y: number,
   tileId: number,
 ): void {
-  const { mapData, tileImages, colliders, scene, player } = tilemapData;
+  const { mapData, tileImages, colliders, physicsColliders, scene, player } = tilemapData;
 
   // Update the map data
   if (y >= 0 && y < mapData.length && x >= 0 && x < mapData[0].length) {
@@ -276,11 +278,18 @@ export function setTileAt(
     }
   }
 
-  // If the new tile is NOT a blocked tile but there was a collider, remove it
+  // If the new tile is NOT a blocked tile but there was a collider, remove both
+  // the physics body rectangle AND the Phaser collider handle
   const colliderKey = `${x},${y}`;
   const existingCollider = colliders.get(colliderKey);
   if (existingCollider && !BLOCKED_TILES.has(tileId)) {
-    // Destroy the physics body and game object
+    // Destroy the Phaser collider (stops collision detection)
+    const physicsCollider = physicsColliders.get(colliderKey);
+    if (physicsCollider) {
+      physicsCollider.destroy();
+      physicsColliders.delete(colliderKey);
+    }
+    // Destroy the physics body rectangle
     existingCollider.destroy();
     colliders.delete(colliderKey);
   }
