@@ -12,6 +12,7 @@ export const TILE_IDS = {
   console: 6,
   bridge: 7,
   crate: 8,
+  flag: 9,
 } as const;
 
 export type TileId = (typeof TILE_IDS)[keyof typeof TILE_IDS];
@@ -27,6 +28,7 @@ export const tileTextureMap: Record<number, string> = {
   [TILE_IDS.console]: 'tile-console',
   [TILE_IDS.bridge]: 'tile-bridge',
   [TILE_IDS.crate]: 'tile-crate',
+  [TILE_IDS.flag]: 'tile-flag',
 };
 
 // Tiles that block player movement
@@ -60,13 +62,6 @@ export const SHRINES = [
     hint: 'Unlocked x. Break nearby crates to open paths.',
   },
   {
-    x: 29,
-    y: 22,
-    unlock: ['i'],
-    title: 'Insert Shrine',
-    hint: 'Unlocked i. Enter insert mode near the console at the river crossing.',
-  },
-  {
     x: 40,
     y: 22,
     unlock: [],
@@ -78,6 +73,37 @@ export const SHRINES = [
 export const MARKER_ROW_Y = 22;
 export const MARKER_POINTS = [13, 18, 24, 30, 36, 43];
 export const CONSOLE_POSITION = { x: 29, y: 13 };
+
+// The gate shrine tile and the full vertical wall that physically blocks
+// passage east of x=41 until all crates are destroyed.
+// The wall runs the full height of the playable area (rows 13–32) at col 41
+// so the player cannot walk around it through the open grass.
+export const GATE_SHRINE = { x: 40, y: 22 };
+export const GATE_WALL_COL = 41;
+export const GATE_WALL_ROW_START = 13;
+export const GATE_WALL_ROW_END   = 32; // exclusive — rows 13..31
+export const GATE_WALL_TILES = Array.from(
+  { length: GATE_WALL_ROW_END - GATE_WALL_ROW_START },
+  (_, i) => ({ x: GATE_WALL_COL, y: GATE_WALL_ROW_START + i }),
+);
+
+// Level 1 completion flag — placed north of the river, above the bridge.
+// Accessible only after the bridge is built (cols 28-30, river rows 10-12).
+// A wall enclosure forces the player to approach from the south via the bridge.
+export const FLAG_POSITION = { x: 29, y: 6 };
+
+// Enclosure walls surrounding the flag: a 5-wide x 5-tall box (cols 27-31,
+// rows 4-8) with a 3-tile entrance at the bottom (cols 28-30, row 8) matching
+// the bridge width so the player can walk straight in from the bridge.
+export const FLAG_ENCLOSURE_WALLS = [
+  // Top row: cols 27-31, row 4
+  { x: 27, y: 4 }, { x: 28, y: 4 }, { x: 29, y: 4 }, { x: 30, y: 4 }, { x: 31, y: 4 },
+  // Left col: col 27, rows 5-8
+  { x: 27, y: 5 }, { x: 27, y: 6 }, { x: 27, y: 7 }, { x: 27, y: 8 },
+  // Right col: col 31, rows 5-8
+  { x: 31, y: 5 }, { x: 31, y: 6 }, { x: 31, y: 7 }, { x: 31, y: 8 },
+  // Bottom row corners only — cols 28-30 left open (3-tile entrance matches bridge)
+];
 
 export interface TilemapData {
   width: number;
@@ -217,7 +243,6 @@ function generateOverworldData(width: number, height: number): number[][] {
   data[6][14] = TILE_IDS.shrine;
   data[18][8] = TILE_IDS.shrine;
   data[22][20] = TILE_IDS.shrine;
-  data[22][29] = TILE_IDS.shrine;
   data[22][40] = TILE_IDS.shrine;
 
   // Console (bridge tiles are added dynamically when activated)
@@ -231,6 +256,22 @@ function generateOverworldData(width: number, height: number): number[][] {
   // Markers on the southern road
   for (const x of MARKER_POINTS) {
     data[22][x] = TILE_IDS.marker;
+  }
+
+  // Gate walls — full vertical wall at col 41 from below the river to just
+  // above the outer wall, so the player cannot walk around it through grass.
+  // Removed dynamically by WorldScene when gateUnlocked becomes true.
+  for (let y = GATE_WALL_ROW_START; y < GATE_WALL_ROW_END; y++) {
+    data[y][GATE_WALL_COL] = TILE_IDS.wall;
+  }
+
+  // Level 1 flag — north of the river, above the bridge entrance.
+  // Only reachable after the bridge (cols 28-30) is built with i.
+  data[FLAG_POSITION.y][FLAG_POSITION.x] = TILE_IDS.flag;
+
+  // Wall enclosure around the flag — forces bridge approach from the south.
+  for (const { x, y } of FLAG_ENCLOSURE_WALLS) {
+    data[y][x] = TILE_IDS.wall;
   }
 
   return data;

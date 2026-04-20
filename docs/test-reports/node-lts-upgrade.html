@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vim Quest — Node LTS Upgrade Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap');
+
+    :root {
+      --bg: #1a1a2e;
+      --panel: #16213e;
+      --panel-border: #0f3460;
+      --gold: #f1c40f;
+      --cyan: #00d4ff;
+      --white: #f0f0f0;
+      --muted: #8892a0;
+      --pass: #2ecc71;
+      --fail: #e74c3c;
+      --warn: #f39c12;
+      --stone-dark: #6e7d85;
+      --grass: #5a9e3a;
+      --grass-dark: #3e7a28;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg,  transparent, transparent 31px, rgba(255,255,255,0.015) 31px, rgba(255,255,255,0.015) 32px),
+        repeating-linear-gradient(90deg, transparent, transparent 31px, rgba(255,255,255,0.015) 31px, rgba(255,255,255,0.015) 32px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      text-align: center;
+      padding: 32px 24px 24px;
+      margin-bottom: 28px;
+      background: linear-gradient(135deg, #0d1b2a, #162032, #0d1b2a);
+      border: 3px solid var(--stone-dark);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 10px;
+      background: repeating-linear-gradient(90deg, #1a5276 0px, #1a5276 22px, #2980b9 22px, #2980b9 44px);
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0; height: 10px;
+      background: repeating-linear-gradient(90deg, var(--pass) 0px, var(--pass) 22px, var(--grass-dark) 22px, var(--grass-dark) 44px);
+    }
+
+    .tag {
+      display: inline-block;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 4px 12px;
+      border-radius: 3px;
+      margin-bottom: 10px;
+      background: #2980b9;
+      color: #fff;
+    }
+
+    .report-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(12px, 3vw, 20px);
+      color: var(--gold);
+      text-shadow: 3px 3px 0 #8b5a00;
+      margin-bottom: 8px;
+    }
+
+    .report-sub {
+      font-size: 20px;
+      color: var(--cyan);
+      letter-spacing: 3px;
+    }
+
+    .report-meta {
+      margin-top: 10px;
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    .summary-bar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .chip {
+      flex: 1;
+      min-width: 130px;
+      padding: 14px 12px;
+      background: var(--panel);
+      border: 2px solid var(--panel-border);
+      border-radius: 4px;
+      text-align: center;
+      position: relative;
+    }
+    .chip::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 4px;
+      border-radius: 4px 4px 0 0;
+    }
+    .chip.pass::before  { background: var(--pass); }
+    .chip.info::before  { background: var(--cyan); }
+    .chip.warn::before  { background: var(--warn); }
+
+    .chip-value {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 20px;
+      display: block;
+    }
+    .chip.pass .chip-value { color: var(--pass); }
+    .chip.info .chip-value { color: var(--cyan); }
+    .chip.warn .chip-value { color: var(--warn); }
+
+    .chip-label {
+      font-size: 13px;
+      color: var(--muted);
+      display: block;
+      margin-top: 4px;
+      letter-spacing: 2px;
+    }
+
+    .section {
+      background: var(--panel);
+      border: 2px solid var(--panel-border);
+      border-radius: 4px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      background: linear-gradient(90deg, var(--panel-border), #1a2a4a);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid var(--panel-border);
+    }
+
+    .section-icon { font-size: 20px; }
+
+    .section-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: 1px;
+    }
+
+    .section-body { padding: 20px; }
+
+    /* version timeline */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .tl-row {
+      display: grid;
+      grid-template-columns: 100px 24px 1fr;
+      align-items: stretch;
+      gap: 0 12px;
+    }
+
+    .tl-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      text-align: right;
+      padding: 14px 0;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .tl-spine {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .tl-dot {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      flex-shrink: 0;
+      margin-top: 14px;
+    }
+
+    .tl-line {
+      flex: 1;
+      width: 2px;
+      background: var(--panel-border);
+    }
+
+    .tl-content {
+      padding: 10px 0 10px 4px;
+      font-size: 16px;
+    }
+
+    .tl-version {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .tl-row.eol    .tl-dot { background: var(--fail);  border-color: var(--fail); }
+    .tl-row.eol    .tl-version { color: var(--fail); }
+    .tl-row.old    .tl-dot { background: var(--warn);  border-color: var(--warn); }
+    .tl-row.old    .tl-version { color: var(--warn); }
+    .tl-row.active .tl-dot { background: var(--pass);  border-color: var(--pass); box-shadow: 0 0 6px var(--pass); }
+    .tl-row.active .tl-version { color: var(--pass); }
+    .tl-row.future .tl-dot { background: var(--stone-dark); border-color: var(--stone-dark); }
+    .tl-row.future .tl-version { color: var(--stone-dark); }
+    .tl-row.project .tl-dot { background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+    .tl-row.project .tl-version { color: var(--cyan); }
+
+    /* diff block */
+    .diff-block {
+      background: #060e18;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      overflow: hidden;
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+    }
+
+    .diff-file {
+      background: #0d1624;
+      padding: 6px 14px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    .diff-lines { padding: 4px 0; }
+
+    .diff-line {
+      display: flex;
+      padding: 1px 0;
+    }
+
+    .diff-line-num {
+      width: 36px;
+      text-align: right;
+      padding-right: 10px;
+      color: #4a5a6a;
+      font-size: 14px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .diff-line-content {
+      flex: 1;
+      padding: 0 10px;
+      white-space: pre;
+    }
+
+    .diff-add  { background: rgba(39,174,96,0.12); }
+    .diff-add  .diff-line-content { color: #7aff7a; }
+    .diff-add  .diff-line-num::before { content: '+'; color: var(--pass); }
+
+    .diff-del  { background: rgba(192,57,43,0.12); }
+    .diff-del  .diff-line-content { color: #ff8f87; text-decoration: line-through; opacity: 0.7; }
+    .diff-del  .diff-line-num::before { content: '-'; color: var(--fail); }
+
+    .diff-ctx  .diff-line-content { color: var(--muted); }
+    .diff-ctx  .diff-line-num::before { content: ' '; }
+
+    /* checklist */
+    .checklist { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .checklist li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 17px;
+      padding: 10px 14px;
+      background: #0d1624;
+      border: 1px solid var(--panel-border);
+      border-radius: 3px;
+    }
+    .check-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .check-text { color: var(--white); }
+    .check-note { color: var(--muted); font-size: 15px; display: block; margin-top: 2px; }
+
+    kbd {
+      display: inline-block;
+      background: #1a2a3a;
+      border: 1px solid var(--stone-dark);
+      border-bottom: 3px solid var(--stone-dark);
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+      color: var(--gold);
+    }
+
+    code {
+      background: #0d1624;
+      border: 1px solid var(--panel-border);
+      border-radius: 3px;
+      padding: 1px 6px;
+      color: var(--cyan);
+      font-family: 'VT323', monospace;
+      font-size: 17px;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 15px;
+      color: var(--muted);
+      border-top: 1px solid var(--panel-border);
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0d1624; }
+    ::-webkit-scrollbar-thumb { background: var(--stone-dark); border-radius: 4px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div style="padding:12px 0;">
+      <div class="tag">INFRA — NODE UPGRADE</div>
+      <div class="report-title">NODE 20 → 22 LTS UPGRADE</div>
+      <div class="report-sub">◈ BEFORE &amp; AFTER ◈</div>
+      <div class="report-meta">.nvmrc &nbsp;·&nbsp; April 20, 2026 &nbsp;·&nbsp; Runtime: Node v22.22.2 (Active LTS)</div>
+    </div>
+  </div>
+
+  <!-- SUMMARY CHIPS -->
+  <div class="summary-bar">
+    <div class="chip warn">
+      <span class="chip-value">v20</span>
+      <span class="chip-label">WAS (EOL SOON)</span>
+    </div>
+    <div class="chip pass">
+      <span class="chip-value">v22</span>
+      <span class="chip-label">NOW (ACTIVE LTS)</span>
+    </div>
+    <div class="chip info">
+      <span class="chip-value">Apr 2027</span>
+      <span class="chip-label">SUPPORT END</span>
+    </div>
+    <div class="chip pass">
+      <span class="chip-value">PASS</span>
+      <span class="chip-label">BUILD STATUS</span>
+    </div>
+  </div>
+
+
+  <!-- WHY -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📋</div>
+      <div class="section-title">Why Upgrade?</div>
+    </div>
+    <div class="section-body" style="font-size:17px;line-height:1.8;">
+      <p style="margin-bottom:12px;">
+        Node 20 enters <strong style="color:var(--fail);">Maintenance LTS</strong> in October 2024 and reaches full <strong style="color:var(--fail);">End of Life in April 2026</strong> — essentially right now. It will receive only critical security patches, no new features or bug fixes.
+      </p>
+      <p>
+        Node 22 is the current <strong style="color:var(--pass);">Active LTS</strong> release. Node 24 was released in April 2026 but does not become LTS until October 2026 — too early to adopt for a production project.
+      </p>
+    </div>
+  </div>
+
+
+  <!-- NODE RELEASE TIMELINE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📅</div>
+      <div class="section-title">Node.js Release Timeline</div>
+    </div>
+    <div class="section-body">
+      <div class="timeline">
+
+        <div class="tl-row eol">
+          <div class="tl-label">2023</div>
+          <div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+          <div class="tl-content">
+            <div class="tl-version">Node 18</div>
+            <div>EOL April 2025. No longer supported.</div>
+          </div>
+        </div>
+
+        <div class="tl-row old">
+          <div class="tl-label">2023–2026</div>
+          <div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+          <div class="tl-content">
+            <div class="tl-version">Node 20 ← was here</div>
+            <div>Maintenance LTS only. EOL April 2026. <strong style="color:var(--warn);">Critical security patches only.</strong></div>
+          </div>
+        </div>
+
+        <div class="tl-row project">
+          <div class="tl-label">2024–2027</div>
+          <div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+          <div class="tl-content">
+            <div class="tl-version">Node 22 ← now here</div>
+            <div><strong style="color:var(--cyan);">Active LTS.</strong> Full bug fixes, security patches, and new features. Supported until <strong style="color:var(--cyan);">April 2027</strong>.</div>
+          </div>
+        </div>
+
+        <div class="tl-row future">
+          <div class="tl-label">2026</div>
+          <div class="tl-spine"><div class="tl-dot"></div><div class="tl-line"></div></div>
+          <div class="tl-content">
+            <div class="tl-version">Node 24</div>
+            <div>Released April 2026. <strong style="color:var(--stone-dark);">LTS status pending — October 2026.</strong> Not recommended yet.</div>
+          </div>
+        </div>
+
+        <div class="tl-row future">
+          <div class="tl-label">Oct 2026</div>
+          <div class="tl-spine"><div class="tl-dot"></div></div>
+          <div class="tl-content">
+            <div class="tl-version">Node 24 becomes LTS</div>
+            <div>Safe to adopt at this point. Revisit upgrade then.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- CHANGE -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📝</div>
+      <div class="section-title">Change Made</div>
+    </div>
+    <div class="section-body">
+      <div class="diff-block">
+        <div class="diff-file">.nvmrc</div>
+        <div class="diff-lines">
+          <div class="diff-line diff-del">
+            <div class="diff-line-num">1</div>
+            <div class="diff-line-content">20</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">1</div>
+            <div class="diff-line-content">22</div>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin-top:14px;font-size:16px;color:var(--muted);">
+        That's the only file change. The runtime was switched to <code>v22.22.2</code> via <code>fnm use 22</code>. Both <code>nvm</code> and <code>fnm</code> read <code>.nvmrc</code>, so any contributor running either tool will automatically pick up Node 22 when they enter the project directory.
+      </p>
+    </div>
+  </div>
+
+
+  <!-- VERIFICATION -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">✅</div>
+      <div class="section-title">Verification</div>
+    </div>
+    <div class="section-body">
+      <ul class="checklist">
+        <li>
+          <span class="check-icon" style="color:var(--pass);">✓</span>
+          <div class="check-text">
+            <code>node --version</code> → <strong style="color:var(--pass);">v22.22.2</strong>
+            <span class="check-note">Confirmed active runtime after fnm use 22.</span>
+          </div>
+        </li>
+        <li>
+          <span class="check-icon" style="color:var(--pass);">✓</span>
+          <div class="check-text">
+            <code>pnpm build</code> exits 0 on Node 22
+            <span class="check-note">tsc + vite build completed cleanly. No dependency issues or engine warnings.</span>
+          </div>
+        </li>
+        <li>
+          <span class="check-icon" style="color:var(--pass);">✓</span>
+          <div class="check-text">
+            No <code>package.json</code> engine changes required
+            <span class="check-note">Vite 5.4 and TypeScript 5.9 both support Node 22 without any config changes.</span>
+          </div>
+        </li>
+        <li>
+          <span class="check-icon" style="color:var(--pass);">✓</span>
+          <div class="check-text">
+            <code>.nvmrc</code> updated to <code>22</code>
+            <span class="check-note">Both nvm and fnm will auto-switch to Node 22 on project entry.</span>
+          </div>
+        </li>
+        <li>
+          <span class="check-icon" style="color:var(--warn);">→</span>
+          <div class="check-text">
+            No <code>engines</code> field in <code>package.json</code>
+            <span class="check-note">Optional follow-up: add <code>"engines": { "node": ">=22" }</code> to make the requirement explicit and enforceable by package managers.</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+
+  <!-- NEXT -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🗓</div>
+      <div class="section-title">When to Upgrade Again</div>
+    </div>
+    <div class="section-body" style="font-size:17px;line-height:1.8;color:var(--muted);">
+      <p><strong style="color:var(--white);">October 2026</strong> — Node 24 becomes Active LTS. Safe to upgrade then.</p>
+      <p><strong style="color:var(--white);">April 2027</strong> — Node 22 goes Maintenance LTS. Upgrade to 24 (or 26) by this date.</p>
+    </div>
+  </div>
+
+
+  <div class="footer">
+    Vim Quest · Node LTS Upgrade Report · docs/test-reports/node-lts-upgrade.html · April 20, 2026
+  </div>
+
+</div>
+</body>
+</html>

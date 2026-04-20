@@ -4,6 +4,8 @@ import {
   CONSOLE_POSITION,
   createOverworldTilemap,
   createTileCollisions,
+  FLAG_POSITION,
+  GATE_WALL_TILES,
   getTileAt,
   MARKER_POINTS,
   MARKER_ROW_Y,
@@ -54,6 +56,12 @@ export class WorldScene extends Phaser.Scene {
       fontFamily: 'Courier New',
       fontSize: '18px',
       color: '#f8f9fa',
+    });
+
+    this.add.text(27 * TILE_SIZE, 3 * TILE_SIZE, '★ Level 1 Flag ★', {
+      fontFamily: 'Courier New',
+      fontSize: '18px',
+      color: '#f1c40f',
     });
 
     this.add.text(42 * TILE_SIZE, 15 * TILE_SIZE, 'Break crates with x', {
@@ -134,6 +142,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.player.setVelocity(vx, vy);
     this.checkShrines();
+    this.checkFlag();
   }
 
   private checkShrines() {
@@ -148,9 +157,9 @@ export class WorldScene extends Phaser.Scene {
       const state = this.getState();
       if (!state.gateUnlocked) {
         this.syncState({ 
-          hint: 'The gate is blocked! You must break all 3 crates before you can proceed.' 
+          hint: 'The gate wall blocks your path! Destroy all 3 crates with x to open it.' 
         });
-        this.showToast('Gate locked - destroy the crates first!');
+        this.showToast('Gate wall locked — break the crates with x first!');
         return;
       }
     }
@@ -172,6 +181,120 @@ export class WorldScene extends Phaser.Scene {
     } else {
       this.showToast(shrine.hint);
     }
+  }
+
+  private checkFlag() {
+    const state = this.getState();
+    if (state.level1Complete) return;
+
+    const tile = getTileAt(this.tilemapData, this.player.x, this.player.y);
+    if (tile.x === FLAG_POSITION.x && tile.y === FLAG_POSITION.y) {
+      // Check if player has unlocked the gate before allowing flag capture
+      if (!state.gateUnlocked) {
+        this.syncState({ hint: 'The path is blocked! Destroy all 3 crates with x to proceed.' });
+        this.showToast('Path blocked — break the crates with x first!');
+        return;
+      }
+      
+      this.triggerWin();
+    }
+  }
+
+  private triggerWin() {
+    this.syncState({
+      level1Complete: true,
+      hint: 'LEVEL 1 COMPLETE! You have mastered the cursor commands. Well done!',
+    });
+
+    // Stop player movement
+    this.player.setVelocity(0, 0);
+    this.player.setActive(false);
+
+    // Confetti burst
+    for (let i = 0; i < 60; i++) {
+      this.spawnConfetti();
+    }
+
+    // Win overlay — dark backdrop
+    const cx = this.cameras.main.scrollX + this.cameras.main.width / 2 / this.cameras.main.zoom;
+    const cy = this.cameras.main.scrollY + this.cameras.main.height / 2 / this.cameras.main.zoom;
+
+    const overlay = this.add.rectangle(cx, cy, 520, 260, 0x061008, 0.92)
+      .setDepth(50)
+      .setStrokeStyle(3, 0xf1c40f, 1);
+
+    this.add.text(cx, cy - 80, '🏆 LEVEL 1 COMPLETE! 🏆', {
+      fontFamily: 'Courier New',
+      fontSize: '26px',
+      color: '#f1c40f',
+      align: 'center',
+    }).setOrigin(0.5).setDepth(51);
+
+    this.add.text(cx, cy - 30, 'You mastered all cursor commands:', {
+      fontFamily: 'Courier New',
+      fontSize: '16px',
+      color: '#c8f7dc',
+      align: 'center',
+    }).setOrigin(0.5).setDepth(51);
+
+    this.add.text(cx, cy + 10, 'h  j  k  l  w  b  0  $  x  i', {
+      fontFamily: 'Courier New',
+      fontSize: '20px',
+      color: '#7aff7a',
+      align: 'center',
+    }).setOrigin(0.5).setDepth(51);
+
+    this.add.text(cx, cy + 55, 'Press R to play again', {
+      fontFamily: 'Courier New',
+      fontSize: '15px',
+      color: '#8892a0',
+      align: 'center',
+    }).setOrigin(0.5).setDepth(51);
+
+    // Pulse the overlay
+    this.tweens.add({
+      targets: overlay,
+      scaleX: 1.02,
+      scaleY: 1.02,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // R to restart
+    this.input.keyboard?.once('keydown-R', () => {
+      this.scene.restart();
+      this.registry.set('gameState', null);
+    });
+  }
+
+  private spawnConfetti() {
+    const colors = [0xf1c40f, 0x2ecc71, 0xe74c3c, 0x00d4ff, 0xff6b6b, 0xf39c12, 0xa29bfe];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    const px = this.player.x + Phaser.Math.Between(-80, 80);
+    const py = this.player.y + Phaser.Math.Between(-60, 20);
+
+    const piece = this.add.rectangle(
+      px, py,
+      Phaser.Math.Between(5, 12),
+      Phaser.Math.Between(5, 12),
+      color,
+    ).setDepth(45).setAngle(Phaser.Math.Between(0, 360));
+
+    this.tweens.add({
+      targets: piece,
+      x: px + Phaser.Math.Between(-120, 120),
+      y: py + Phaser.Math.Between(60, 200),
+      angle: piece.angle + Phaser.Math.Between(-180, 180),
+      alpha: 0,
+      scaleX: 0.2,
+      scaleY: 0.2,
+      duration: Phaser.Math.Between(900, 1800),
+      ease: 'Quad.easeOut',
+      onComplete: () => piece.destroy(),
+    });
   }
 
   private handleWordJump(direction: 1 | -1) {
@@ -248,9 +371,17 @@ export class WorldScene extends Phaser.Scene {
           this.syncState({ 
             cratesDestroyed: newCount,
             gateUnlocked: true,
-            hint: 'All crates destroyed! The gate to Wave 1 is now open.' 
+            hint: 'All crates destroyed! The gate to Wave 1 is now open. You found the i command!' 
           });
-          this.showToast('All crates broken! Gate unlocked!');
+          this.showToast('All crates broken! Gate unlocked! Found i command!');
+          this.openGate();
+          
+          // Unlock the 'i' command as a reward
+          const unlocked = new Set(state.unlockedCommands);
+          unlocked.add('i');
+          this.syncState({ 
+            unlockedCommands: Array.from(unlocked)
+          });
         } else {
           this.syncState({ 
             cratesDestroyed: newCount,
@@ -263,6 +394,16 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.syncState({ hint: 'Nothing breakable is next to you.' });
+  }
+
+  /**
+   * Remove the gate wall tiles when all crates have been destroyed,
+   * opening the physical passage east of the Wave 1 Gate shrine.
+   */
+  private openGate() {
+    for (const { x, y } of GATE_WALL_TILES) {
+      setTileAt(this.tilemapData, x, y, TILE_IDS.path);
+    }
   }
 
   private handleInsertAction() {
@@ -280,10 +421,12 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.setMode('insert');
-    // Activate bridge - create a path across the full river (rows 10-12) at column 29
-    setTileAt(this.tilemapData, 29, 10, TILE_IDS.path);
-    setTileAt(this.tilemapData, 29, 11, TILE_IDS.path);
-    setTileAt(this.tilemapData, 29, 12, TILE_IDS.path);
+    // Activate bridge - 3 tiles wide (cols 28-30) across the full river (rows 10-12)
+    for (const col of [28, 29, 30]) {
+      setTileAt(this.tilemapData, col, 10, TILE_IDS.path);
+      setTileAt(this.tilemapData, col, 11, TILE_IDS.path);
+      setTileAt(this.tilemapData, col, 12, TILE_IDS.path);
+    }
     this.syncState({ hint: 'Bridge activated. Cross the river to reach the Wave 1 gate.' });
     this.showToast('Insert console activated the bridge');
   }

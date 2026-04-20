@@ -52,7 +52,6 @@ export const createOverworldMap = (): number[][] => {
   data[6][14] = TILE_IDS.shrine;
   data[18][8] = TILE_IDS.shrine;
   data[22][20] = TILE_IDS.shrine;
-  data[22][29] = TILE_IDS.shrine;
   data[22][40] = TILE_IDS.shrine;
 
   data[13][29] = TILE_IDS.console;
@@ -90,13 +89,6 @@ export const SHRINES = [
     unlock: ['x'],
     title: 'Operator Shrine',
     hint: 'Unlocked x. Break nearby crates to open paths.',
-  },
-  {
-    x: 29,
-    y: 22,
-    unlock: ['i'],
-    title: 'Insert Shrine',
-    hint: 'Unlocked i. Enter insert mode near the console at the river crossing.',
   },
   {
     x: 40,

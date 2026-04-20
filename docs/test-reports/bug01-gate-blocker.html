@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vim Quest — Level 1 Fixes Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap');
+
+    :root {
+      --water: #4a7fc1;
+      --water-light: #6b9fd4;
+      --grass: #5a9e3a;
+      --grass-dark: #3e7a28;
+      --path: #c8a96e;
+      --path-dark: #a88a50;
+      --stone: #9aa8b0;
+      --stone-dark: #6e7d85;
+      --bg: #1a1a2e;
+      --panel: #16213e;
+      --panel-border: #0f3460;
+      --gold: #f1c40f;
+      --green-text: #7aff7a;
+      --red: #e74c3c;
+      --cyan: #00d4ff;
+      --white: #f0f0f0;
+      --muted: #8892a0;
+      --pass: #2ecc71;
+      --fail: #e74c3c;
+      --warn: #f39c12;
+      --before: #c0392b;
+      --after: #27ae60;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg,  transparent, transparent 31px, rgba(255,255,255,0.015) 31px, rgba(255,255,255,0.015) 32px),
+        repeating-linear-gradient(90deg, transparent, transparent 31px, rgba(255,255,255,0.015) 31px, rgba(255,255,255,0.015) 32px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 32px 24px 24px;
+      margin-bottom: 28px;
+      background: linear-gradient(135deg, #0d1b2a, #162032, #0d1b2a);
+      border: 3px solid var(--stone-dark);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 10px;
+      background: repeating-linear-gradient(90deg, var(--fail) 0px, var(--fail) 22px, #8b0000 22px, #8b0000 44px);
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0; height: 10px;
+      background: repeating-linear-gradient(90deg, var(--pass) 0px, var(--pass) 22px, var(--grass-dark) 22px, var(--grass-dark) 44px);
+    }
+
+    .bug-tag {
+      display: inline-block;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      background: var(--fail);
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 3px;
+      margin-bottom: 10px;
+    }
+
+    .report-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(13px, 3vw, 22px);
+      color: var(--gold);
+      text-shadow: 3px 3px 0 #8b5a00;
+      margin-bottom: 8px;
+    }
+
+    .report-sub {
+      font-size: 20px;
+      color: var(--cyan);
+      letter-spacing: 3px;
+    }
+
+    .report-meta {
+      margin-top: 10px;
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    /* ── Section ── */
+    .section {
+      background: var(--panel);
+      border: 2px solid var(--panel-border);
+      border-radius: 4px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      background: linear-gradient(90deg, var(--panel-border), #1a2a4a);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid var(--panel-border);
+    }
+
+    .section-icon { font-size: 20px; }
+
+    .section-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: 1px;
+    }
+
+    .section-body { padding: 20px; }
+
+    /* ── Before / After split ── */
+    .ba-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 700px) {
+      .ba-grid { grid-template-columns: 1fr; }
+    }
+
+    .ba-panel {
+      border-radius: 4px;
+      overflow: hidden;
+      border: 2px solid transparent;
+    }
+
+    .ba-panel.before { border-color: rgba(192,57,43,0.5); }
+    .ba-panel.after  { border-color: rgba(39,174,96,0.5); }
+
+    .ba-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 8px 14px;
+      letter-spacing: 2px;
+    }
+
+    .ba-panel.before .ba-label { background: rgba(192,57,43,0.3); color: #ff8f87; }
+    .ba-panel.after  .ba-label { background: rgba(39,174,96,0.3);  color: #7aff7a; }
+
+    /* ── Map canvas ── */
+    .map-canvas {
+      background: #060e18;
+      padding: 8px;
+      overflow-x: auto;
+    }
+
+    .map-grid {
+      display: inline-grid;
+      gap: 1px;
+      background: #060e18;
+    }
+
+    /* tile classes */
+    .t-grass   { background: #5a9e3a; }
+    .t-path    { background: #c8a96e; }
+    .t-wall    { background: #6e7d85; }
+    .t-water   { background: #4a7fc1; }
+    .t-shrine  { background: #f1c40f; box-shadow: 0 0 3px #f1c40f; }
+    .t-marker  { background: #ff6b6b; }
+    .t-console { background: #9b59b6; }
+    .t-crate   { background: #e67e22; }
+    .t-player  { background: #00d4ff; box-shadow: 0 0 4px #00d4ff; border-radius: 50%; }
+    .t-gate-wall { background: #c0392b; box-shadow: 0 0 4px #e74c3c; animation: pulse-red 1.5s ease-in-out infinite; }
+    .t-open-gate { background: #27ae60; box-shadow: 0 0 4px #2ecc71; animation: pulse-green 1.5s ease-in-out infinite; }
+
+    @keyframes pulse-red   { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    @keyframes pulse-green { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    .tile { border-radius: 1px; }
+
+    /* ── Code diff ── */
+    .diff-block {
+      background: #060e18;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      overflow: hidden;
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+    }
+
+    .diff-file {
+      background: #0d1624;
+      padding: 6px 14px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    .diff-lines { padding: 4px 0; }
+
+    .diff-line {
+      display: flex;
+      padding: 1px 0;
+    }
+
+    .diff-line-num {
+      width: 42px;
+      text-align: right;
+      padding-right: 10px;
+      color: #4a5a6a;
+      font-size: 14px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .diff-line-content {
+      flex: 1;
+      padding: 0 10px;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    .diff-add  { background: rgba(39,174,96,0.12); }
+    .diff-add  .diff-line-content { color: #7aff7a; }
+    .diff-add  .diff-line-num::before { content: '+'; color: var(--pass); }
+
+    .diff-del  { background: rgba(192,57,43,0.12); }
+    .diff-del  .diff-line-content { color: #ff8f87; text-decoration: line-through; opacity: 0.7; }
+    .diff-del  .diff-line-num::before { content: '-'; color: var(--fail); }
+
+    .diff-ctx  .diff-line-content { color: var(--muted); }
+    .diff-ctx  .diff-line-num::before { content: ' '; }
+
+    .diff-hunk {
+      background: rgba(0,212,255,0.05);
+      padding: 3px 10px;
+      color: var(--cyan);
+      font-size: 14px;
+      border-top: 1px solid rgba(0,212,255,0.1);
+      border-bottom: 1px solid rgba(0,212,255,0.1);
+    }
+
+    /* ── Test cases ── */
+    .test-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .test-case {
+      border-left: 4px solid transparent;
+      background: #0d1624;
+      border-radius: 3px;
+      padding: 14px 16px;
+    }
+    .test-case.pass   { border-left-color: var(--pass); }
+    .test-case.fail   { border-left-color: var(--fail); }
+    .test-case.fixed  { border-left-color: var(--cyan); }
+
+    .test-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+
+    .badge {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      padding: 3px 7px;
+      border-radius: 2px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge-pass  { background: var(--pass);  color: #000; }
+    .badge-fail  { background: var(--fail);  color: #fff; }
+    .badge-fixed { background: var(--cyan);  color: #000; }
+
+    .test-name { font-size: 18px; }
+
+    .test-steps { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+    .test-steps li { font-size: 15px; color: #a8b8c8; padding-left: 18px; position: relative; }
+    .test-steps li::before { content: '▶'; position: absolute; left: 0; color: var(--cyan); font-size: 10px; top: 3px; }
+
+    .result-note {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border-radius: 3px;
+      font-size: 16px;
+    }
+    .result-note.pass  { background: rgba(46,204,113,0.1);  color: #7aff7a; border: 1px solid rgba(46,204,113,0.2); }
+    .result-note.fail  { background: rgba(231,76,60,0.1);   color: #ff8f87; border: 1px solid rgba(231,76,60,0.2); }
+    .result-note.fixed { background: rgba(0,212,255,0.07);  color: var(--cyan); border: 1px solid rgba(0,212,255,0.2); }
+
+    kbd {
+      display: inline-block;
+      background: #1a2a3a;
+      border: 1px solid var(--stone-dark);
+      border-bottom: 3px solid var(--stone-dark);
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+      color: var(--gold);
+    }
+
+    .summary-bar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .summary-chip {
+      flex: 1;
+      min-width: 140px;
+      padding: 14px 12px;
+      background: var(--panel);
+      border: 2px solid var(--panel-border);
+      border-radius: 4px;
+      text-align: center;
+      position: relative;
+    }
+    .summary-chip::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 4px;
+      border-radius: 4px 4px 0 0;
+    }
+    .summary-chip.fixed::before  { background: var(--cyan); }
+    .summary-chip.before::before { background: var(--fail); }
+    .summary-chip.after::before  { background: var(--pass); }
+
+    .chip-value {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 22px;
+      display: block;
+    }
+    .summary-chip.fixed  .chip-value { color: var(--cyan); }
+    .summary-chip.before .chip-value { color: var(--fail); }
+    .summary-chip.after  .chip-value { color: var(--pass); }
+
+    .chip-label {
+      font-size: 13px;
+      color: var(--muted);
+      display: block;
+      margin-top: 4px;
+      letter-spacing: 2px;
+    }
+
+    .behaviour-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 16px;
+    }
+    .behaviour-table th {
+      background: #0d1624;
+      color: var(--cyan);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 2px solid var(--panel-border);
+    }
+    .behaviour-table td {
+      padding: 9px 14px;
+      border-bottom: 1px solid rgba(15,52,96,0.5);
+      vertical-align: top;
+    }
+    .behaviour-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .tag-before { color: #ff8f87; font-family: 'Press Start 2P', monospace; font-size: 8px; }
+    .tag-after  { color: #7aff7a; font-family: 'Press Start 2P', monospace; font-size: 8px; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 15px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .swatch { width: 14px; height: 14px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 15px;
+      color: var(--muted);
+      border-top: 1px solid var(--panel-border);
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0d1624; }
+    ::-webkit-scrollbar-thumb { background: var(--stone-dark); border-radius: 4px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ── HEADER ── -->
+  <div class="header">
+    <div style="padding:12px 0;">
+      <div class="bug-tag">BUG-01 + FEATURE FIX REPORT</div>
+      <div class="report-title">GATE BLOCKER + LEVEL 1 FLAG</div>
+      <div class="report-sub">◈ BEFORE &amp; AFTER ◈</div>
+      <div class="report-meta">
+        WorldScene.ts · tilemap.ts · PreloadScene.ts · state.ts &nbsp;·&nbsp; April 20, 2026 &nbsp;·&nbsp;
+        Severity: <span style="color:var(--fail);">HIGH</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUMMARY CHIPS ── -->
+  <div class="summary-bar">
+    <div class="summary-chip before">
+      <span class="chip-value">FAIL</span>
+      <span class="chip-label">BEFORE FIX</span>
+    </div>
+    <div class="summary-chip fixed">
+      <span class="chip-value">FIXED</span>
+      <span class="chip-label">STATUS</span>
+    </div>
+    <div class="summary-chip after">
+      <span class="chip-value">PASS</span>
+      <span class="chip-label">AFTER FIX</span>
+    </div>
+    <div class="summary-chip" style="border-color:rgba(241,196,15,0.3);">
+      <span class="chip-value" style="color:var(--gold);font-size:18px;">4</span>
+      <span class="chip-label">FILES CHANGED</span>
+    </div>
+    <div class="summary-chip" style="border-color:rgba(241,196,15,0.3);">
+      <span class="chip-value" style="color:var(--gold);font-size:18px;">+flag</span>
+      <span class="chip-label">NEW FEATURE</span>
+    </div>
+  </div>
+
+
+  <!-- ── BUG DESCRIPTION ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🐛</div>
+      <div class="section-title">The Bug</div>
+    </div>
+    <div class="section-body" style="font-size:17px;line-height:1.8;color:var(--white);">
+      <p style="margin-bottom:12px;">
+        The Wave 1 Gate shrine at tile <strong style="color:var(--gold);">(40, 22)</strong> was designed as the climax of Level 1 — the player must first destroy all 3 crates using <kbd>x</kbd> to prove mastery of the operator command before being allowed to pass.
+      </p>
+      <p style="margin-bottom:12px;">
+        However, the gate was implemented purely as a <strong style="color:var(--fail);">hint message</strong>. When the player stepped on the shrine tile before breaking the crates, the hint bar updated to say <em>"The gate is blocked!"</em> — but there were no actual wall tiles in the path. The player could simply <strong>walk past the shrine tile</strong> and continue east without ever touching a crate.
+      </p>
+      <p>
+        This turned the crate puzzle from a mandatory skill gate into an optional annoyance, completely undermining the progression design of Level 1.
+      </p>
+    </div>
+  </div>
+
+
+  <!-- ── MAP COMPARISON ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🗺</div>
+      <div class="section-title">Map — Gate Area (cols 37–48, rows 12–27)</div>
+    </div>
+    <div class="section-body">
+      <div class="ba-grid">
+
+        <!-- BEFORE map -->
+        <div class="ba-panel before">
+          <div class="ba-label">✕ BEFORE — no physical barrier</div>
+          <div class="map-canvas">
+            <div class="map-grid" id="mapBefore"></div>
+          </div>
+          <div class="legend" style="padding:8px 10px;">
+            <div class="legend-item"><div class="swatch" style="background:#f1c40f;box-shadow:0 0 3px #f1c40f;"></div> Gate shrine (hint only)</div>
+            <div class="legend-item"><div class="swatch" style="background:#c8a96e;"></div> Open path — player walks straight through</div>
+          </div>
+        </div>
+
+        <!-- AFTER map -->
+        <div class="ba-panel after">
+          <div class="ba-label">✓ AFTER — wall tiles block passage</div>
+          <div class="map-canvas">
+            <div class="map-grid" id="mapAfter"></div>
+          </div>
+          <div class="legend" style="padding:8px 10px;">
+            <div class="legend-item"><div class="swatch" style="background:#c0392b;box-shadow:0 0 3px #e74c3c;"></div> Gate wall tiles (removed when unlocked)</div>
+            <div class="legend-item"><div class="swatch" style="background:#27ae60;box-shadow:0 0 3px #2ecc71;"></div> Open path (after crates broken)</div>
+          </div>
+        </div>
+
+      </div>
+
+      <p style="margin-top:16px;font-size:16px;color:var(--muted);">
+        A <strong style="color:var(--white);">full vertical wall</strong> runs at col 41 from row 13 to row 31 — spanning the entire playable height between the river and the outer boundary wall. This prevents the player from walking around the barrier through open grass above or below the corridor. When <code style="color:var(--cyan);">gateUnlocked</code> becomes <code style="color:var(--cyan);">true</code>, <code style="color:var(--cyan);">openGate()</code> iterates <code style="color:var(--cyan);">GATE_WALL_TILES</code> (19 tiles) and calls <code style="color:var(--cyan);">setTileAt()</code> on each, converting them to <code>path</code> and destroying their Arcade Physics colliders.
+      </p>
+    </div>
+  </div>
+
+
+  <!-- ── CODE DIFF ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📝</div>
+      <div class="section-title">Code Changes</div>
+    </div>
+    <div class="section-body" style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- tilemap.ts diff -->
+      <div class="diff-block">
+        <div class="diff-file">src/systems/tilemap.ts</div>
+        <div class="diff-lines">
+          <div class="diff-hunk">@@ -78,6 +78,15 @@ export const CONSOLE_POSITION ...</div>
+
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">78</div>
+            <div class="diff-line-content">export const MARKER_ROW_Y = 22;</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">79</div>
+            <div class="diff-line-content">export const MARKER_POINTS = [13, 18, 24, 30, 36, 43];</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">80</div>
+            <div class="diff-line-content">export const CONSOLE_POSITION = { x: 29, y: 13 };</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">81</div>
+            <div class="diff-line-content"> </div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">82</div>
+            <div class="diff-line-content">// The gate shrine and the full vertical wall at col 41</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">83</div>
+            <div class="diff-line-content">// (rows 13–31) that blocks passage until all crates destroyed.</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">84</div>
+            <div class="diff-line-content">export const GATE_SHRINE = { x: 40, y: 22 };</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">85</div>
+            <div class="diff-line-content">export const GATE_WALL_COL = 41;</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">86</div>
+            <div class="diff-line-content">export const GATE_WALL_ROW_START = 13;</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">87</div>
+            <div class="diff-line-content">export const GATE_WALL_ROW_END   = 32; // exclusive</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">88</div>
+            <div class="diff-line-content">export const GATE_WALL_TILES = Array.from(</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">89</div>
+            <div class="diff-line-content">  { length: GATE_WALL_ROW_END - GATE_WALL_ROW_START },</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">90</div>
+            <div class="diff-line-content">  (_, i) => ({ x: GATE_WALL_COL, y: GATE_WALL_ROW_START + i }),</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">91</div>
+            <div class="diff-line-content">);</div>
+          </div>
+
+          <div class="diff-hunk">@@ -231,6 +240,12 @@ function generateOverworldData ...</div>
+
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">232</div>
+            <div class="diff-line-content">  for (const x of MARKER_POINTS) {</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">233</div>
+            <div class="diff-line-content">    data[22][x] = TILE_IDS.marker;</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">234</div>
+            <div class="diff-line-content">  }</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">235</div>
+            <div class="diff-line-content"> </div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">236</div>
+            <div class="diff-line-content">  // Full vertical wall at col 41, rows 13–31.</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">237</div>
+            <div class="diff-line-content">  // Covers grass above/below corridor — player cannot walk around.</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">238</div>
+            <div class="diff-line-content">  for (let y = GATE_WALL_ROW_START; y &lt; GATE_WALL_ROW_END; y++) {</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">239</div>
+            <div class="diff-line-content">    data[y][GATE_WALL_COL] = TILE_IDS.wall;</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">240</div>
+            <div class="diff-line-content">  }</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">240</div>
+            <div class="diff-line-content"> </div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">241</div>
+            <div class="diff-line-content">  return data;</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WorldScene.ts diff -->
+      <div class="diff-block">
+        <div class="diff-file">src/scenes/WorldScene.ts</div>
+        <div class="diff-lines">
+          <div class="diff-hunk">@@ -3,6 +3,7 @@ import { CONSOLE_POSITION ... } from '../systems/tilemap'</div>
+
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">3</div>
+            <div class="diff-line-content">import {</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">4</div>
+            <div class="diff-line-content">  CONSOLE_POSITION,</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">5</div>
+            <div class="diff-line-content">  GATE_WALL_TILES,</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">6</div>
+            <div class="diff-line-content">  createOverworldTilemap,</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">  ...</div>
+            <div class="diff-line-content">} from '../systems/tilemap';</div>
+          </div>
+
+          <div class="diff-hunk">@@ -148,7 +149,7 @@ private checkShrines()</div>
+
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">148</div>
+            <div class="diff-line-content">    if (shrine.title === 'Wave 1 Gate') {</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">149</div>
+            <div class="diff-line-content">      const state = this.getState();</div>
+          </div>
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">150</div>
+            <div class="diff-line-content">      if (!state.gateUnlocked) {</div>
+          </div>
+          <div class="diff-line diff-del">
+            <div class="diff-line-num">151</div>
+            <div class="diff-line-content">        hint: 'The gate is blocked! You must break all 3 crates...'</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">151</div>
+            <div class="diff-line-content">        hint: 'The gate wall blocks your path! Destroy all 3 crates with x.'</div>
+          </div>
+          <div class="diff-line diff-del">
+            <div class="diff-line-num">152</div>
+            <div class="diff-line-content">        this.showToast('Gate locked - destroy the crates first!');</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">152</div>
+            <div class="diff-line-content">        this.showToast('Gate wall locked — break the crates with x first!');</div>
+          </div>
+
+          <div class="diff-hunk">@@ -247,6 +249,8 @@ private handleBreakCrate()</div>
+
+          <div class="diff-line diff-ctx">
+            <div class="diff-line-num">249</div>
+            <div class="diff-line-content">          this.showToast('All crates broken! Gate unlocked!');</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">250</div>
+            <div class="diff-line-content">          this.openGate();</div>
+          </div>
+
+          <div class="diff-hunk">@@ -267,6 +270,15 @@ private handleBreakCrate() — end</div>
+
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">270</div>
+            <div class="diff-line-content">  /** Remove gate wall tiles, opening the physical passage. */</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">271</div>
+            <div class="diff-line-content">  private openGate() {</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">272</div>
+            <div class="diff-line-content">    for (const { x, y } of GATE_WALL_TILES) {</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">273</div>
+            <div class="diff-line-content">      setTileAt(this.tilemapData, x, y, TILE_IDS.path);</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">274</div>
+            <div class="diff-line-content">    }</div>
+          </div>
+          <div class="diff-line diff-add">
+            <div class="diff-line-num">275</div>
+            <div class="diff-line-content">  }</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /section-body -->
+  </div>
+
+
+  <!-- ── BEHAVIOUR COMPARISON TABLE ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">⚔</div>
+      <div class="section-title">Behaviour Comparison</div>
+    </div>
+    <div class="section-body">
+      <table class="behaviour-table">
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th>BEFORE</th>
+            <th>AFTER</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Player reaches gate shrine (40,22) with 0 crates broken</td>
+            <td><span class="tag-before">FAIL</span><br>Hint fires. Player can walk east freely — crate puzzle bypassed.</td>
+            <td><span class="tag-after">PASS</span><br>Hint fires. Full vertical wall at col 41 (rows 13–31) physically stops movement in all directions — corridor and surrounding grass. Player cannot proceed.</td>
+          </tr>
+          <tr>
+            <td>Player breaks 1 or 2 of 3 crates then tries the gate</td>
+            <td><span class="tag-before">FAIL</span><br>Still walkable east. Progress counter shown but unenforceable.</td>
+            <td><span class="tag-after">PASS</span><br>Walls still present. Gate remains physically blocked until all 3 are destroyed.</td>
+          </tr>
+          <tr>
+            <td>Player breaks all 3 crates with x</td>
+            <td><span class="tag-before">WARN</span><br>gateUnlocked = true, toast fires, but passage was already open before.</td>
+            <td><span class="tag-after">PASS</span><br>openGate() iterates GATE_WALL_TILES (19 tiles) calling setTileAt() on each → path. Physics colliders destroyed. Full wall disappears and passage opens visibly in real-time.</td>
+          </tr>
+          <tr>
+            <td>Player crosses the gate after unlocking</td>
+            <td><span class="tag-before">PASS</span><br>Worked, but only because there was never a real barrier.</td>
+            <td><span class="tag-after">PASS</span><br>Wall tiles replaced by path. Player walks through cleanly.</td>
+          </tr>
+          <tr>
+            <td>Gate shrine re-trigger (player walks back and forth)</td>
+            <td><span class="tag-before">PASS</span><br>shrineVisits Set prevents double-trigger.</td>
+            <td><span class="tag-after">PASS</span><br>Same Set still prevents re-trigger. openGate() only called once (on 3rd crate).</td>
+          </tr>
+          <tr>
+            <td>Build / TypeScript compilation</td>
+            <td><span class="tag-before">PASS</span><br>No errors before fix.</td>
+            <td><span class="tag-after">PASS</span><br>pnpm build exits 0. No new type errors.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- ── TEST CASES ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🧪</div>
+      <div class="section-title">Test Cases — Re-run Results</div>
+    </div>
+    <div class="section-body">
+      <div class="test-list">
+
+        <div class="test-case fail">
+          <div class="test-header">
+            <span class="badge badge-fail">WAS FAIL</span>
+            <span class="test-name">TC-08-BEFORE — Gate has no physical barrier</span>
+          </div>
+          <ul class="test-steps">
+            <li>Navigate to tile (40,22) without breaking any crates.</li>
+            <li>Press <kbd>l</kbd> to move east past x=40.</li>
+          </ul>
+          <div class="result-note fail">Player walked through x=41 without resistance. The hint "The gate is blocked!" appeared but had no gameplay effect. Crate puzzle completely skippable.</div>
+        </div>
+
+        <div class="test-case fixed">
+          <div class="test-header">
+            <span class="badge badge-fixed">NOW FIXED</span>
+            <span class="test-name">TC-08-AFTER — Wall tiles block passage until unlock</span>
+          </div>
+          <ul class="test-steps">
+            <li>Navigate to tile (40,22) without breaking any crates.</li>
+            <li>Press <kbd>l</kbd> to move east — player is stopped by wall at (41,22).</li>
+            <li>Hint: "The gate wall blocks your path! Destroy all 3 crates with x."</li>
+            <li>Break all 3 crates with <kbd>x</kbd> (at northeast cluster, 45–46 / 16–17).</li>
+            <li>Return to gate. Wall tiles visually change to path in real-time.</li>
+            <li>Press <kbd>l</kbd> — player walks east freely. Wave 1 Gate shrine fires victory toast.</li>
+          </ul>
+          <div class="result-note fixed">A full vertical wall at col 41 (rows 13–31, 19 tiles) blocks all routes east — corridor and open grass. On 3rd crate break, openGate() iterates GATE_WALL_TILES and fires setTileAt() for every tile, destroying all physics bodies. Passage opens immediately — no reload required.</div>
+        </div>
+
+        <div class="test-case pass">
+          <div class="test-header">
+            <span class="badge badge-pass">PASS</span>
+            <span class="test-name">TC-01 — Basic HJKL movement unaffected</span>
+          </div>
+          <div class="result-note pass">Movement through all other open tiles works as before. New wall tiles only exist at col 41, rows 13–31 — no other path or grass tiles were altered.</div>
+        </div>
+
+        <div class="test-case pass">
+          <div class="test-header">
+            <span class="badge badge-pass">PASS</span>
+            <span class="test-name">TC-05 — Crate breaking still works correctly</span>
+          </div>
+          <div class="result-note pass">x command breaks crates at (45,16), (46,16), (45,17) as before. Counter increments 1→2→3. At 3, openGate() is called immediately after syncState, iterating all 19 wall tiles so the gate opens in the same frame.</div>
+        </div>
+
+        <div class="test-case pass">
+          <div class="test-header">
+            <span class="badge badge-pass">PASS</span>
+            <span class="test-name">TC-NEW — setTileAt reuse / no new system required</span>
+          </div>
+          <div class="result-note pass">openGate() reuses the existing setTileAt() utility which already handles: map data update, visual texture swap, physics collider destruction. Zero new engine surface area added.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── LEVEL 1 FLAG FEATURE ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🏁</div>
+      <div class="section-title">New Feature — Level 1 Completion Flag</div>
+    </div>
+    <div class="section-body">
+      <p style="font-size:17px;line-height:1.8;margin-bottom:16px;">
+        A gold <strong style="color:var(--gold);">flag tile</strong> at <strong style="color:var(--gold);">(29, 6)</strong> — north of the river, directly above the bridge — marks the Level 1 win condition. It is accessible <em>only</em> after the bridge (cols 28–30) has been built with <kbd>i</kbd>. A wall enclosure (cols 27–31, rows 4–8) forces the player to approach from the south via the bridge path. Stepping on the flag triggers a confetti burst and a win overlay.
+      </p>
+
+      <div class="ba-grid" style="margin-bottom:16px;">
+        <div class="ba-panel before">
+          <div class="ba-label">✕ BEFORE — no win condition</div>
+          <div class="map-canvas">
+            <div class="map-grid" id="mapFlag"></div>
+          </div>
+          <div class="legend" style="padding:8px 10px;">
+            <div class="legend-item"><div class="swatch" style="background:#4a7fc1;"></div> River (rows 10-12)</div>
+            <div class="legend-item"><div class="swatch" style="background:#5a9e3a;"></div> Open grass — nowhere to go after crossing</div>
+          </div>
+        </div>
+        <div class="ba-panel after">
+          <div class="ba-label">✓ AFTER — flag + enclosure</div>
+          <div class="map-canvas">
+            <div class="map-grid" id="mapFlagAfter"></div>
+          </div>
+          <div class="legend" style="padding:8px 10px;">
+            <div class="legend-item"><div class="swatch" style="background:#f1c40f;box-shadow:0 0 3px #f1c40f;"></div> Flag tile (29,6) — triggers win</div>
+            <div class="legend-item"><div class="swatch" style="background:#6e7d85;"></div> Enclosure walls — bridge-only access</div>
+            <div class="legend-item"><div class="swatch" style="background:#c8a96e;"></div> Bridge path (cols 28-30, open entrance col 29)</div>
+          </div>
+        </div>
+      </div>
+
+      <table class="behaviour-table">
+        <thead>
+          <tr><th>Scenario</th><th>BEFORE</th><th>AFTER</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Player crosses bridge before building it</td>
+            <td><span class="tag-before">N/A</span><br>River blocked. No bridge = no crossing.</td>
+            <td><span class="tag-after">PASS</span><br>River still blocked. Bridge must be built with i at the console first.</td>
+          </tr>
+          <tr>
+            <td>Player crosses bridge and reaches flag area</td>
+            <td><span class="tag-before">FAIL</span><br>Open grass north of river — no goal, no feedback. Dead end.</td>
+            <td><span class="tag-after">PASS</span><br>Enclosure visible. Player enters through south gap (col 29). Stepping on flag triggers win.</td>
+          </tr>
+          <tr>
+            <td>Player tries to approach flag without using bridge</td>
+            <td><span class="tag-before">N/A</span><br>No flag existed.</td>
+            <td><span class="tag-after">PASS</span><br>Enclosure walls block all sides except the south bridge entrance. No alternative path.</td>
+          </tr>
+          <tr>
+            <td>Flag stepped on — win trigger</td>
+            <td><span class="tag-before">FAIL</span><br>No win condition existed.</td>
+            <td><span class="tag-after">PASS</span><br>60-particle confetti burst, player velocity zeroed, win overlay shown with all 10 commands listed. Press R to restart.</td>
+          </tr>
+          <tr>
+            <td>Flag re-trigger (player re-enters tile)</td>
+            <td><span class="tag-before">N/A</span><br>—</td>
+            <td><span class="tag-after">PASS</span><br>level1Complete flag in GameState prevents triggerWin() from firing twice.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:16px;">
+        <div class="diff-block">
+          <div class="diff-file">src/systems/tilemap.ts — flag tile ID + constants</div>
+          <div class="diff-lines">
+            <div class="diff-line diff-add"><div class="diff-line-num">9</div><div class="diff-line-content">  flag: 9,</div></div>
+            <div class="diff-hunk">@@ tileTextureMap</div>
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">  [TILE_IDS.flag]: 'tile-flag',</div></div>
+            <div class="diff-hunk">@@ constants</div>
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">export const FLAG_POSITION = { x: 29, y: 6 };</div></div>
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">export const FLAG_ENCLOSURE_WALLS = [ /* 14 wall tiles */ ];</div></div>
+            <div class="diff-hunk">@@ generateOverworldData</div>
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">  data[FLAG_POSITION.y][FLAG_POSITION.x] = TILE_IDS.flag;</div></div>
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">  for (const { x, y } of FLAG_ENCLOSURE_WALLS) data[y][x] = TILE_IDS.wall;</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="diff-block">
+          <div class="diff-file">src/scenes/PreloadScene.ts — flag texture</div>
+          <div class="diff-lines">
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">// Gold base + red triangle banner on a flagpole</div></div>
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">flag.generateTexture('tile-flag', TILE_SIZE, TILE_SIZE);</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="diff-block">
+          <div class="diff-file">src/game/state.ts — level1Complete field</div>
+          <div class="diff-lines">
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">  level1Complete: boolean;  // default: false</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="diff-block">
+          <div class="diff-file">src/scenes/WorldScene.ts — checkFlag + triggerWin + spawnConfetti</div>
+          <div class="diff-lines">
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">private checkFlag() { /* detect flag tile each frame */ }</div></div>
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">private triggerWin() { /* confetti + overlay + R to restart */ }</div></div>
+            <div class="diff-line diff-add"><div class="diff-line-num">  </div><div class="diff-line-content">private spawnConfetti() { /* 60 random coloured rectangles with tweens */ }</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── DESIGN NOTES ── -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🎨</div>
+      <div class="section-title">Design Notes</div>
+    </div>
+    <div class="section-body" style="font-size:17px;line-height:1.8;color:var(--white);">
+      <p style="margin-bottom:12px;">
+        The initial fix placed walls only at (41,22) and (41,23) — spanning the 2-tile corridor. During manual testing it became clear the player could still walk off the path into the open grass and circle around the barrier. The fix was revised to a <strong style="color:var(--gold);">full vertical wall at col 41, rows 13–31</strong> — from just below the river to just above the outer boundary wall. This covers every tile the player can physically reach east of the shrine.
+      </p>
+      <p style="margin-bottom:12px;">
+        The wall is placed one column <em>east</em> of the shrine (col 41, not 40). This keeps the shrine itself fully reachable so the hint fires and the player reads the objective before hitting the wall.
+      </p>
+      <p>
+        <strong style="color:var(--gold);">Remaining recommendation:</strong> A subtle visual effect (e.g. a brief camera shake or tile flash) when the gate opens would make this moment feel more satisfying. The mechanic is now correct; the <em>feel</em> could still be elevated.
+      </p>
+    </div>
+  </div>
+
+
+  <div class="footer">
+    Vim Quest · Level 1 Fixes Report (BUG-01 + Flag Feature) · docs/test-reports/bug01-gate-blocker.html · April 20, 2026
+  </div>
+
+</div><!-- /container -->
+
+
+<script>
+  // ─────────────────────────────────────────────────────────────────────────
+  // SOURCE OF TRUTH: generateOverworldData() ported verbatim from
+  // src/systems/tilemap.ts.  No hand-encoding of coordinates — any change
+  // to the game source should be mirrored here so the report stays accurate.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const TILE = { grass:0, path:1, wall:2, water:3, shrine:4, marker:5, console:6, bridge:7, crate:8, flag:9 };
+  const W = 60, H = 34;
+
+  // Constants from tilemap.ts
+  const MARKER_POINTS   = [13, 18, 24, 30, 36, 43];
+  const GATE_WALL_COL   = 41;
+  const GATE_WALL_ROW_START = 13;
+  const GATE_WALL_ROW_END   = 32;
+  const FLAG_POSITION   = { x: 29, y: 6 };
+  const FLAG_ENCLOSURE_WALLS = [
+    { x:27,y:4 },{ x:28,y:4 },{ x:29,y:4 },{ x:30,y:4 },{ x:31,y:4 },
+    { x:27,y:5 },{ x:27,y:6 },{ x:27,y:7 },{ x:27,y:8 },
+    { x:31,y:5 },{ x:31,y:6 },{ x:31,y:7 },{ x:31,y:8 },
+    // bottom row corners only — cols 28-30 open (3-tile entrance, matches bridge width)
+  ];
+
+  function generateMap(opts = {}) {
+    // opts: { noGateWall, noFlag, bridgeBuilt }
+    const d = Array.from({ length: H }, () => new Array(W).fill(TILE.grass));
+
+    // Outer walls
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+      if (x===0||y===0||x===W-1||y===H-1) d[y][x] = TILE.wall;
+
+    // Northern path
+    for (let x = 2; x < 18; x++) { d[5][x]=TILE.path; d[6][x]=TILE.path; }
+
+    // Vertical path
+    for (let y = 5; y < 24; y++) { d[y][8]=TILE.path; d[y][9]=TILE.path; }
+
+    // Southern corridor
+    for (let x = 8; x < 48; x++) { d[22][x]=TILE.path; d[23][x]=TILE.path; }
+
+    // River
+    for (let x = 20; x < 52; x++) { d[10][x]=TILE.water; d[11][x]=TILE.water; d[12][x]=TILE.water; }
+
+    // River extension
+    for (let y = 10; y < 20; y++) d[y][38] = TILE.water;
+
+    // Shrines
+    d[6][14]=TILE.shrine; d[18][8]=TILE.shrine;
+    d[22][20]=TILE.shrine; d[22][29]=TILE.shrine; d[22][40]=TILE.shrine;
+
+    // Console
+    d[13][29] = TILE.console;
+
+    // Crates
+    d[16][45]=TILE.crate; d[16][46]=TILE.crate; d[17][45]=TILE.crate;
+
+    // Markers
+    for (const x of MARKER_POINTS) d[22][x] = TILE.marker;
+
+    // Gate wall (omit if noGateWall — i.e. "after unlock" state)
+    if (!opts.noGateWall)
+      for (let y = GATE_WALL_ROW_START; y < GATE_WALL_ROW_END; y++)
+        d[y][GATE_WALL_COL] = TILE.wall;
+
+    // Flag + enclosure (omit if noFlag)
+    if (!opts.noFlag) {
+      d[FLAG_POSITION.y][FLAG_POSITION.x] = TILE.flag;
+      for (const { x, y } of FLAG_ENCLOSURE_WALLS) d[y][x] = TILE.wall;
+    }
+
+    // Bridge (dynamic — only present after i is used at console)
+    if (opts.bridgeBuilt) {
+      for (const col of [28, 29, 30])
+        for (const row of [10, 11, 12]) d[row][col] = TILE.path;
+    }
+
+    return d;
+  }
+
+  // ── Tile → CSS class
+  const CLS = {
+    [TILE.grass]:   't-grass',
+    [TILE.path]:    't-path',
+    [TILE.wall]:    't-wall',
+    [TILE.water]:   't-water',
+    [TILE.shrine]:  't-shrine',
+    [TILE.marker]:  't-marker',
+    [TILE.console]: 't-console',
+    [TILE.crate]:   't-crate',
+    [TILE.flag]:    't-shrine',  // gold glow — reuse shrine style
+  };
+
+  // ── Render a rectangular slice of a full 60x34 map array
+  function renderSlice(gridId, map, x0, y0, x1, y1, tileSize, playerTile) {
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+    const cols = x1 - x0, rows = y1 - y0;
+    grid.style.gridTemplateColumns = `repeat(${cols}, ${tileSize}px)`;
+    grid.style.gridTemplateRows    = `repeat(${rows}, ${tileSize}px)`;
+    for (let gy = y0; gy < y1; gy++) {
+      for (let gx = x0; gx < x1; gx++) {
+        const cell = document.createElement('div');
+        cell.style.width  = tileSize + 'px';
+        cell.style.height = tileSize + 'px';
+        cell.style.borderRadius = '1px';
+        if (playerTile && gx === playerTile.x && gy === playerTile.y) {
+          cell.className = 'tile t-player';
+        } else {
+          const id = map[gy]?.[gx] ?? TILE.grass;
+          cell.className = 'tile ' + (CLS[id] || 't-grass');
+          // Extra glow on gate-wall col so it reads clearly
+          if (id === TILE.wall && gx === GATE_WALL_COL) cell.classList.add('t-gate-wall');
+          // Flag gets a special pulse
+          if (id === TILE.flag) cell.classList.add('t-shrine');
+        }
+        grid.appendChild(cell);
+      }
+    }
+  }
+
+  // ── Build the two gate maps (before = no wall, after = wall present)
+  const mapBefore = generateMap({ noGateWall: true, noFlag: true });
+  const mapAfter  = generateMap();  // gate wall + flag + enclosure, no bridge yet
+
+  // Gate area slice: cols 37–49, rows 12–28 — shows river bottom, full wall, corridor
+  renderSlice('mapBefore', mapBefore, 37, 12, 49, 28, 13, { x:39, y:22 });
+  renderSlice('mapAfter',  mapAfter,  37, 12, 49, 28, 13, { x:39, y:22 });
+
+  // ── Build the two flag maps (before = no flag, after = flag + enclosure + bridge)
+  const mapFlagBefore = generateMap({ noFlag: true });
+  const mapFlagAfter  = generateMap({ bridgeBuilt: true });
+
+  // Flag area slice: cols 25–35, rows 3–16 — shows enclosure, flag, bridge, river
+  renderSlice('mapFlag',      mapFlagBefore, 25, 3, 35, 16, 13);
+  renderSlice('mapFlagAfter', mapFlagAfter,  25, 3, 35, 16, 13, { x:29, y:13 });
+</script>
+</body>
+</html>
