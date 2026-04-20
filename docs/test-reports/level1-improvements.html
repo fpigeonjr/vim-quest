@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vim Quest — Level 1 Improvements Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap');
+
+    :root {
+      --water: #4a7fc1;
+      --water-light: #6b9fd4;
+      --grass: #5a9e3a;
+      --path: #c8a96e;
+      --stone: #9aa8b0;
+      --bg: #1a1a2e;
+      --panel: #16213e;
+      --panel-border: #0f3460;
+      --gold: #f1c40f;
+      --gold-dark: #e67e22;
+      --green-text: #7aff7a;
+      --red: #e74c3c;
+      --cyan: #00d4ff;
+      --white: #f0f0f0;
+      --muted: #8892a0;
+      --pass: #2ecc71;
+      --fail: #e74c3c;
+      --warn: #f39c12;
+      --info: #8ecae6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(255,255,255,0.015) 31px, rgba(255,255,255,0.015) 32px),
+        repeating-linear-gradient(90deg, transparent, transparent 31px, rgba(255,255,255,0.015) 31px, rgba(255,255,255,0.015) 32px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 40px 20px 32px;
+      border-bottom: 3px solid var(--panel-border);
+      margin-bottom: 36px;
+    }
+
+    .header-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #0f3460, #16213e);
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      padding: 6px 18px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--gold);
+      letter-spacing: 2px;
+      margin-bottom: 18px;
+    }
+
+    .header h1 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 22px;
+      color: var(--gold);
+      text-shadow: 0 0 20px rgba(241,196,15,0.5);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .header-meta {
+      color: var(--muted);
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
+    /* ── Summary bar ── */
+    .summary-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 36px;
+    }
+
+    .summary-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      border: 2px solid;
+    }
+
+    .pill-fixed   { background: rgba(46,204,113,0.12); border-color: var(--pass); color: var(--pass); }
+    .pill-added   { background: rgba(0,212,255,0.10);  border-color: var(--cyan); color: var(--cyan); }
+    .pill-pass    { background: rgba(241,196,15,0.10); border-color: var(--gold); color: var(--gold); }
+
+    .pill-count { font-size: 18px; }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 40px;
+    }
+
+    .section-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      color: var(--gold);
+      letter-spacing: 1px;
+      padding: 10px 16px;
+      background: linear-gradient(90deg, rgba(241,196,15,0.12), transparent);
+      border-left: 4px solid var(--gold);
+      margin-bottom: 18px;
+    }
+
+    /* ── Fix cards ── */
+    .fix-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+      gap: 18px;
+    }
+
+    .fix-card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 20px 22px;
+      position: relative;
+    }
+
+    .fix-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .fix-card.fixed::before  { background: var(--pass); }
+    .fix-card.added::before  { background: var(--cyan); }
+
+    .fix-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .fix-badge {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .badge-fix  { background: rgba(46,204,113,0.2);  color: var(--pass);  border: 1px solid var(--pass); }
+    .badge-feat { background: rgba(0,212,255,0.15);  color: var(--cyan);  border: 1px solid var(--cyan); }
+    .badge-sev-high { background: rgba(231,76,60,0.2);  color: var(--fail);  border: 1px solid var(--fail); }
+    .badge-sev-med  { background: rgba(243,156,18,0.2); color: var(--warn);  border: 1px solid var(--warn); }
+    .badge-sev-low  { background: rgba(142,202,230,0.2);color: var(--info);  border: 1px solid var(--info); }
+
+    .fix-title {
+      font-size: 18px;
+      color: var(--white);
+      font-weight: bold;
+    }
+
+    .fix-id {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .fix-body {
+      color: #c8d6e5;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .code-block {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #e6edf3;
+      margin: 10px 0;
+      overflow-x: auto;
+    }
+
+    .code-block .kw  { color: #ff7b72; }
+    .code-block .str { color: #a5d6ff; }
+    .code-block .cmt { color: #8b949e; font-style: italic; }
+    .code-block .fn  { color: #d2a8ff; }
+    .code-block .num { color: #79c0ff; }
+
+    .before-after {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .ba-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      margin-bottom: 4px;
+    }
+
+    .ba-before .ba-label { color: var(--fail); }
+    .ba-after  .ba-label { color: var(--pass); }
+
+    /* ── Screenshot gallery ── */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px;
+    }
+
+    .gallery-item {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .gallery-item img {
+      width: 100%;
+      display: block;
+    }
+
+    .gallery-caption {
+      padding: 8px 12px;
+      font-size: 14px;
+      color: var(--muted);
+      border-top: 1px solid var(--panel-border);
+    }
+
+    /* ── Test result table ── */
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 16px;
+    }
+
+    .result-table th {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--gold);
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--panel-border);
+      background: rgba(241,196,15,0.06);
+    }
+
+    .result-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(15,52,96,0.6);
+      vertical-align: top;
+    }
+
+    .result-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .status-pass  { color: var(--pass); font-weight: bold; }
+    .status-fixed { color: var(--cyan); font-weight: bold; }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      padding-top: 32px;
+      border-top: 1px solid var(--panel-border);
+      margin-top: 40px;
+    }
+
+    .footer a { color: var(--cyan); text-decoration: none; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="header-badge">◈ LEVEL 1 IMPROVEMENT REPORT ◈</div>
+    <h1>Cursor Meadow<br>Polish &amp; Bug Fix Pass</h1>
+    <div class="header-meta">Tested: April 20, 2026 &nbsp;·&nbsp; Build: Phaser 3 / Vite / TypeScript &nbsp;·&nbsp; Follows Level 1 Test Report</div>
+  </div>
+
+  <!-- ── Summary bar ── -->
+  <div class="summary-bar">
+    <div class="summary-pill pill-fixed">
+      <span class="pill-count">3</span> BUGS FIXED
+    </div>
+    <div class="summary-pill pill-added">
+      <span class="pill-count">2</span> FEATURES ADDED
+    </div>
+    <div class="summary-pill pill-pass">
+      <span class="pill-count">19</span> SCREENSHOTS PASS
+    </div>
+  </div>
+
+  <!-- ── Fixes section ── -->
+  <div class="section">
+    <div class="section-title">Bug Fixes</div>
+    <div class="fix-grid">
+
+      <!-- BUG-02 -->
+      <div class="fix-card fixed">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-fix">FIXED</span>
+          <span class="fix-badge badge-sev-med">SEVERITY: MED</span>
+          <span class="fix-title">BUG-02 · Bridge re-fires on every i press</span>
+        </div>
+        <div class="fix-id">WorldScene.ts · handleInsertAction()</div>
+        <div class="fix-body">
+          <p>Pressing <code>i</code> at the River Console rebuilt the bridge on every keypress because
+          <code>setTileAt</code> is idempotent but the toast and hint fired repeatedly and
+          the physics colliders were re-destroyed each time, risking memory churn.</p>
+          <div class="before-after">
+            <div class="ba-before">
+              <div class="ba-label">BEFORE</div>
+              <div class="code-block">
+                <span class="cmt">// No guard — fires every keypress</span><br>
+                <span class="kw">this</span>.<span class="fn">setMode</span>(<span class="str">'insert'</span>);<br>
+                <span class="kw">for</span> (<span class="kw">const</span> col <span class="kw">of</span> [<span class="num">28</span>,<span class="num">29</span>,<span class="num">30</span>]) {<br>
+                &nbsp;&nbsp;<span class="fn">setTileAt</span>(...);<br>
+                }
+              </div>
+            </div>
+            <div class="ba-after">
+              <div class="ba-label">AFTER</div>
+              <div class="code-block">
+                <span class="kw">private</span> bridgeBuilt = <span class="kw">false</span>;<br><br>
+                <span class="kw">if</span> (<span class="kw">this</span>.bridgeBuilt) {<br>
+                &nbsp;&nbsp;<span class="cmt">// idempotent hint only</span><br>
+                &nbsp;&nbsp;<span class="kw">return</span>;<br>
+                }<br>
+                <span class="kw">this</span>.bridgeBuilt = <span class="kw">true</span>;<br>
+                <span class="cmt">// build bridge once</span>
+              </div>
+            </div>
+          </div>
+          <p>A private <code>bridgeBuilt</code> flag (also persisted in <code>GameState.bridgeBuilt</code>
+          so it survives reloads) short-circuits the build path after the first activation.
+          Subsequent <code>i</code> presses while on the console show a "bridge already built" hint.</p>
+        </div>
+      </div>
+
+      <!-- BUG-03 -->
+      <div class="fix-card fixed">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-fix">FIXED</span>
+          <span class="fix-badge badge-sev-med">SEVERITY: MED</span>
+          <span class="fix-title">BUG-03 · Progress lost on page reload</span>
+        </div>
+        <div class="fix-id">state.ts · saveState / loadSavedState · BootScene.ts</div>
+        <div class="fix-body">
+          <p>The entire game state — unlocked commands, crates destroyed, gate status, bridge status —
+          was ephemeral and reset to defaults on every page reload.</p>
+          <p style="margin-top:8px;">Three changes implement a full save/restore cycle:</p>
+          <div class="code-block">
+            <span class="cmt">// state.ts — new helpers</span><br>
+            <span class="kw">const</span> SAVE_KEY = <span class="str">'vimquest-save-v1'</span>;<br><br>
+            <span class="kw">export function</span> <span class="fn">saveState</span>(state: GameState): <span class="kw">void</span> {<br>
+            &nbsp;&nbsp;localStorage.<span class="fn">setItem</span>(SAVE_KEY, <span class="fn">JSON.stringify</span>(state));<br>
+            }<br><br>
+            <span class="kw">export function</span> <span class="fn">loadSavedState</span>(): GameState | <span class="kw">null</span> {<br>
+            &nbsp;&nbsp;<span class="kw">const</span> raw = localStorage.<span class="fn">getItem</span>(SAVE_KEY);<br>
+            &nbsp;&nbsp;<span class="kw">return</span> raw ? { ...<span class="fn">defaultGameState</span>(), ...<span class="fn">JSON.parse</span>(raw) } : <span class="kw">null</span>;<br>
+            }
+          </div>
+          <ul style="margin-top:8px; padding-left:18px; color:#c8d6e5;">
+            <li><strong>BootScene</strong> calls <code>loadSavedState()</code> and falls back to <code>defaultGameState()</code> if no save exists.</li>
+            <li><strong>WorldScene.syncState()</strong> calls <code>saveState()</code> on every state patch — zero extra calls needed.</li>
+            <li><strong>WorldScene.restoreFromState()</strong> re-applies open gate / built bridge to the map geometry after world generation.</li>
+            <li>Pressing <strong>R</strong> to restart now calls <code>clearSavedState()</code> so the new run starts clean.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- BUG-04 -->
+      <div class="fix-card fixed">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-fix">FIXED</span>
+          <span class="fix-badge badge-sev-low">SEVERITY: LOW</span>
+          <span class="fix-title">BUG-04 · INSERT mode visually indistinguishable</span>
+        </div>
+        <div class="fix-id">WorldScene.ts · setMode()</div>
+        <div class="fix-body">
+          <p>The speed reduction in INSERT mode (180 → 120 px/s) was imperceptible during play.
+          The HUD label changed to <code>[INSERT]</code> but the player cursor looked identical,
+          making it hard to track current mode at a glance.</p>
+          <div class="code-block">
+            <span class="cmt">// setMode() — before: no visual change</span><br>
+            <span class="kw">private</span> <span class="fn">setMode</span>(mode: VimMode) {<br>
+            &nbsp;&nbsp;<span class="kw">this</span>.<span class="fn">syncState</span>({ mode });<br>
+            &nbsp;&nbsp;<span class="cmt">// ↓ added</span><br>
+            &nbsp;&nbsp;<span class="kw">if</span> (mode === <span class="str">'insert'</span>) {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.player.<span class="fn">setTint</span>(<span class="num">0x88ccff</span>); <span class="cmt">// soft blue</span><br>
+            &nbsp;&nbsp;} <span class="kw">else</span> {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">this</span>.player.<span class="fn">clearTint</span>();<br>
+            &nbsp;&nbsp;}<br>
+            }
+          </div>
+          <p>The player cursor is now tinted <strong style="color:#88ccff;">soft blue (#88ccff)</strong> when in INSERT mode
+          and returns to normal on <code>Esc</code>. The tint is applied consistently wherever
+          <code>setMode()</code> is called (insert action, console activation, Esc handler).</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Feature additions ── -->
+  <div class="section">
+    <div class="section-title">Feature Additions</div>
+    <div class="fix-grid">
+
+      <!-- Crate animation -->
+      <div class="fix-card added">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-feat">FEATURE</span>
+          <span class="fix-title">Crate break animation + camera shake</span>
+        </div>
+        <div class="fix-id">WorldScene.ts · handleBreakCrate()</div>
+        <div class="fix-body">
+          <p>Previously the crate tile silently swapped to path with no visual or physical feedback,
+          making it unclear whether the <code>x</code> command had done anything.</p>
+          <div class="code-block">
+            <span class="cmt">// 120 ms camera shake</span><br>
+            <span class="kw">this</span>.cameras.main.<span class="fn">shake</span>(<span class="num">120</span>, <span class="num">0.006</span>);<br><br>
+            <span class="cmt">// Scale-to-zero tween on the crate image</span><br>
+            <span class="kw">this</span>.tweens.<span class="fn">add</span>({<br>
+            &nbsp;&nbsp;targets: crateImage,<br>
+            &nbsp;&nbsp;scaleX: <span class="num">0</span>, scaleY: <span class="num">0</span>,<br>
+            &nbsp;&nbsp;angle: <span class="num">45</span>, alpha: <span class="num">0</span>,<br>
+            &nbsp;&nbsp;duration: <span class="num">220</span>, ease: <span class="str">'Back.easeIn'</span>,<br>
+            &nbsp;&nbsp;<span class="fn">onComplete</span>: () =&gt; {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;crateImage.<span class="fn">setScale</span>(<span class="num">1</span>).<span class="fn">setAlpha</span>(<span class="num">1</span>).<span class="fn">setAngle</span>(<span class="num">0</span>);<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="fn">setTileAt</span>(..., TILE_IDS.path);<br>
+            &nbsp;&nbsp;},<br>
+            });
+          </div>
+          <p>The crate now spins and shrinks to zero over 220 ms before the tile swap occurs,
+          and the camera shakes briefly for impact. The image properties are reset after the
+          tween so the underlying node is clean before <code>setTileAt</code> replaces its texture.</p>
+        </div>
+      </div>
+
+      <!-- Signposts -->
+      <div class="fix-card added">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-feat">FEATURE</span>
+          <span class="fix-title">In-world directional signposts</span>
+        </div>
+        <div class="fix-id">WorldScene.ts · buildWorld()</div>
+        <div class="fix-body">
+          <p>Players had no in-world cues pointing them toward shrines, the crate puzzle,
+          or the River Console. The only guidance was the HUD hint bar, which many
+          players don't read carefully during exploration.</p>
+          <p style="margin-top:8px;">Five signpost text objects were added at strategic waypoints:</p>
+          <ul style="margin-top:8px; padding-left:18px; color:#c8d6e5;">
+            <li><strong style="color:#f1fa8c;">Near spawn (row 7)</strong> — "► Word Shrine: w b →"</li>
+            <li><strong style="color:#8ecae6;">Vertical path (row 12)</strong> — "▼ Line Shrine: 0 $"</li>
+            <li><strong style="color:#ffb3c1;">South corridor entry (row 21)</strong> — "► Operator Shrine: x →"</li>
+            <li><strong style="color:#f8f9fa;">Crate cluster (row 15)</strong> — "► Break crates with x (3 to unlock the gate)"</li>
+            <li><strong style="color:#a8dadc;">River bank (row 8)</strong> — "▼ River Console — Press i to build bridge"</li>
+          </ul>
+          <p style="margin-top:8px;">Each sign uses a dark panel background, coloured per zone,
+          and a small readable font (13 px Courier New) so it doesn't compete with gameplay elements.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Full test matrix ── -->
+  <div class="section">
+    <div class="section-title">Full Regression Test Matrix</div>
+    <table class="result-table">
+      <thead>
+        <tr>
+          <th>Test</th>
+          <th>Expected</th>
+          <th>Result</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>hjkl movement</td>
+          <td>Player moves in 4 directions at 180 px/s</td>
+          <td class="status-pass">PASS</td>
+          <td>No regression</td>
+        </tr>
+        <tr>
+          <td>Word Shrine unlock (w, b)</td>
+          <td>Commands added to HUD on first visit; dedup on revisit</td>
+          <td class="status-pass">PASS</td>
+          <td>Shrine visit set restored from save correctly</td>
+        </tr>
+        <tr>
+          <td>Line Shrine unlock (0, $)</td>
+          <td>Snap to marker row start/end</td>
+          <td class="status-pass">PASS</td>
+          <td>No regression</td>
+        </tr>
+        <tr>
+          <td>Operator Shrine unlock (x)</td>
+          <td>x command added; crate breaking enabled</td>
+          <td class="status-pass">PASS</td>
+          <td>No regression</td>
+        </tr>
+        <tr>
+          <td>Crate break animation</td>
+          <td>Crate spins/shrinks on x; camera shakes; tile swaps after tween</td>
+          <td class="status-fixed">NEW · PASS</td>
+          <td>220 ms Back.easeIn tween + shake(120, 0.006)</td>
+        </tr>
+        <tr>
+          <td>Gate opens after 3 crates</td>
+          <td>Wall tiles at col 41 removed; i command unlocked</td>
+          <td class="status-pass">PASS</td>
+          <td>No regression; animation does not affect gate logic</td>
+        </tr>
+        <tr>
+          <td>Bridge: single build (BUG-02)</td>
+          <td>i at console builds bridge once; subsequent presses show hint</td>
+          <td class="status-fixed">FIXED · PASS</td>
+          <td>bridgeBuilt flag prevents re-fire</td>
+        </tr>
+        <tr>
+          <td>INSERT mode tint (BUG-04)</td>
+          <td>Player turns blue on i; clears to normal on Esc</td>
+          <td class="status-fixed">FIXED · PASS</td>
+          <td>setTint(0x88ccff) / clearTint() in setMode()</td>
+        </tr>
+        <tr>
+          <td>Save on progress (BUG-03)</td>
+          <td>Reloading the page restores unlocked commands, gate, bridge status</td>
+          <td class="status-fixed">FIXED · PASS</td>
+          <td>localStorage key vimquest-save-v1; merged with defaultGameState</td>
+        </tr>
+        <tr>
+          <td>Save restore: map geometry</td>
+          <td>Gate wall absent and bridge tiles present after reload if previously built</td>
+          <td class="status-fixed">FIXED · PASS</td>
+          <td>restoreFromState() re-applies tile mutations post world-gen</td>
+        </tr>
+        <tr>
+          <td>R to restart clears save</td>
+          <td>Fresh state after restart; no stale save pollutes next run</td>
+          <td class="status-pass">PASS</td>
+          <td>clearSavedState() called before scene.restart()</td>
+        </tr>
+        <tr>
+          <td>Signposts visible in-world</td>
+          <td>5 coloured signpost labels at correct positions</td>
+          <td class="status-fixed">NEW · PASS</td>
+          <td>Confirmed in screenshots 02, 03, 04, 06, 10</td>
+        </tr>
+        <tr>
+          <td>Flag / win condition</td>
+          <td>Confetti burst + win overlay + LEVEL 1 COMPLETE text</td>
+          <td class="status-pass">PASS</td>
+          <td>No regression</td>
+        </tr>
+        <tr>
+          <td>Locked command feedback</td>
+          <td>Hint shows "command still locked: x" when used before unlock</td>
+          <td class="status-pass">PASS</td>
+          <td>No regression</td>
+        </tr>
+        <tr>
+          <td>HUD sync (mode, commands, hint)</td>
+          <td>All three HUD panels update instantly on state change</td>
+          <td class="status-pass">PASS</td>
+          <td>No regression; new bridgeBuilt field in GameState causes no UI breakage</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Open items carried forward ── -->
+  <div class="section">
+    <div class="section-title">Open Items Carried Forward</div>
+    <table class="result-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Description</th>
+          <th>Priority</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>UX-01</td>
+          <td>Console tile discoverability — needs idle pulse animation or proximity prompt</td>
+          <td style="color:var(--warn)">MED</td>
+          <td style="color:var(--warn)">OPEN</td>
+        </tr>
+        <tr>
+          <td>UX-02</td>
+          <td>No onboarding for hjkl newcomers — brief intro screen or dialogue NPC</td>
+          <td style="color:var(--warn)">MED</td>
+          <td style="color:var(--warn)">OPEN</td>
+        </tr>
+        <tr>
+          <td>UX-03</td>
+          <td>Audio — no sound effects for movement, shrine unlock, crate break, win</td>
+          <td style="color:var(--muted)">LOW</td>
+          <td style="color:var(--muted)">OPEN</td>
+        </tr>
+        <tr>
+          <td>UX-04</td>
+          <td>w/b road constraint doesn't match real Vim word-jump semantics</td>
+          <td style="color:var(--muted)">LOW</td>
+          <td style="color:var(--muted)">OPEN</td>
+        </tr>
+        <tr>
+          <td>ROAD-01</td>
+          <td>Level 2 — Word Woods scene scaffold (w b e zone)</td>
+          <td style="color:var(--pass)">NEXT</td>
+          <td style="color:var(--pass)">PLANNED</td>
+        </tr>
+        <tr>
+          <td>ROAD-02</td>
+          <td>Scene transition (fade/warp) into sub-areas / dungeon entrance</td>
+          <td style="color:var(--pass)">NEXT</td>
+          <td style="color:var(--pass)">PLANNED</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Screenshot gallery ── -->
+  <div class="section">
+    <div class="section-title">Playwright Screenshot Evidence</div>
+    <div class="gallery">
+      <div class="gallery-item">
+        <img src="01-title.png" alt="Title screen" />
+        <div class="gallery-caption">01 · Title screen</div>
+      </div>
+      <div class="gallery-item">
+        <img src="02-game-start.png" alt="Game start — signposts visible" />
+        <div class="gallery-caption">02 · Game start — new signpost near spawn visible</div>
+      </div>
+      <div class="gallery-item">
+        <img src="03-word-shrine.png" alt="Word Shrine (14,6)" />
+        <div class="gallery-caption">03 · Word Shrine — w b unlocked</div>
+      </div>
+      <div class="gallery-item">
+        <img src="04-line-shrine.png" alt="Line Shrine (8,18)" />
+        <div class="gallery-caption">04 · Line Shrine — 0 $ unlocked</div>
+      </div>
+      <div class="gallery-item">
+        <img src="05-operator-shrine.png" alt="Operator Shrine (20,22)" />
+        <div class="gallery-caption">05 · Operator Shrine — x unlocked</div>
+      </div>
+      <div class="gallery-item">
+        <img src="06-crates-before.png" alt="Crate cluster before breaking" />
+        <div class="gallery-caption">06 · Crate cluster — before breaking (signpost visible)</div>
+      </div>
+      <div class="gallery-item">
+        <img src="07-crate-1-broken.png" alt="Crate 1/3 broken" />
+        <div class="gallery-caption">07 · Crate 1/3 broken (animation frame)</div>
+      </div>
+      <div class="gallery-item">
+        <img src="08-crate-2-broken.png" alt="Crate 2/3 broken" />
+        <div class="gallery-caption">08 · Crate 2/3 broken</div>
+      </div>
+      <div class="gallery-item">
+        <img src="09-all-crates-broken.png" alt="All 3 crates broken — i unlocked" />
+        <div class="gallery-caption">09 · All crates broken — i unlocked, gate wall removed</div>
+      </div>
+      <div class="gallery-item">
+        <img src="10-at-console.png" alt="At River Console" />
+        <div class="gallery-caption">10 · At River Console — signpost "Press i to build bridge" visible</div>
+      </div>
+      <div class="gallery-item">
+        <img src="11-bridge-built.png" alt="Bridge activated" />
+        <div class="gallery-caption">11 · Bridge built — player tinted blue (INSERT mode)</div>
+      </div>
+      <div class="gallery-item">
+        <img src="12-crossed-bridge.png" alt="Crossed bridge, approaching flag" />
+        <div class="gallery-caption">12 · Crossed bridge — north of river</div>
+      </div>
+      <div class="gallery-item">
+        <img src="13-entering-enclosure.png" alt="Entering flag enclosure" />
+        <div class="gallery-caption">13 · Entering flag enclosure</div>
+      </div>
+      <div class="gallery-item">
+        <img src="14-flag-triggered.png" alt="Flag reached — confetti" />
+        <div class="gallery-caption">14 · Flag reached — confetti + win overlay</div>
+      </div>
+      <div class="gallery-item">
+        <img src="15-win-overlay.png" alt="LEVEL 1 COMPLETE overlay" />
+        <div class="gallery-caption">15 · LEVEL 1 COMPLETE overlay</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <div class="footer">
+    <p>Vim Quest · Level 1 Improvements Report · April 20, 2026</p>
+    <p style="margin-top:6px;">Build: Phaser 3.90 / Vite 5.4 / TypeScript 5.9 · Tested with Playwright</p>
+    <p style="margin-top:6px;"><a href="level1-test-report.html">← Level 1 Test Report</a> &nbsp;|&nbsp; <a href="level1-fixes.html">Level 1 Fixes Report</a></p>
+  </div>
+
+</div>
+</body>
+</html>

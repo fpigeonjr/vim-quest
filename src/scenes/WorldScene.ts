@@ -14,13 +14,14 @@ import {
   TILE_IDS,
   TilemapData,
 } from '../systems/tilemap';
-import { GameState, REGISTRY_KEYS, VimMode } from '../game/state';
+import { GameState, REGISTRY_KEYS, VimMode, saveState, clearSavedState } from '../game/state';
 
 export class WorldScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private cursors!: { [key: string]: Phaser.Input.Keyboard.Key };
   private tilemapData!: TilemapData;
   private shrineVisits = new Set<string>();
+  private bridgeBuilt = false;
 
   constructor() {
     super('world');
@@ -35,39 +36,82 @@ export class WorldScene extends Phaser.Scene {
       areaName: 'Cursor Meadow',
       hint: 'Visit shrines to unlock commands and test them in the meadow.',
     });
+    this.restoreFromState();
   }
 
   update() {
     this.handleMovement();
   }
 
+  /**
+   * After map + collisions are set up, apply any previously saved progress
+   * (open gate, build bridge) so the world matches the loaded save state.
+   */
+  private restoreFromState() {
+    const state = this.getState();
+
+    if (state.gateUnlocked) {
+      this.openGate();
+    }
+
+    if (state.bridgeBuilt) {
+      this.bridgeBuilt = true;
+      for (const col of [28, 29, 30]) {
+        setTileAt(this.tilemapData, col, 10, TILE_IDS.path);
+        setTileAt(this.tilemapData, col, 11, TILE_IDS.path);
+        setTileAt(this.tilemapData, col, 12, TILE_IDS.path);
+      }
+    }
+
+    // Shrine visits — mark any shrine whose commands are already unlocked
+    const unlocked = new Set(state.unlockedCommands);
+    for (const shrine of SHRINES) {
+      if (shrine.unlock.length > 0 && shrine.unlock.every((c) => unlocked.has(c))) {
+        this.shrineVisits.add(shrine.title);
+      }
+    }
+  }
+
   private buildWorld() {
     // Create tilemap using the new system
     this.tilemapData = createOverworldTilemap(this);
 
-    // Add labels
+    // ── Area label ────────────────────────────────────────────────────────────
     this.add.text(5 * TILE_SIZE, 4 * TILE_SIZE, 'Cursor Meadow', {
       fontFamily: 'Courier New',
       fontSize: '24px',
       color: '#f1fa8c',
     });
 
-    this.add.text(21 * TILE_SIZE, 8 * TILE_SIZE, 'River Console', {
+    // ── Signposts / directional hints ─────────────────────────────────────────
+    const signStyle = (color = '#e2f0cb') => ({
       fontFamily: 'Courier New',
-      fontSize: '18px',
-      color: '#f8f9fa',
+      fontSize: '13px',
+      color,
+      backgroundColor: '#0d1f0f',
+      padding: { x: 6, y: 3 },
     });
 
+    // Near spawn — point toward Word Shrine (east on row 6)
+    this.add.text(5 * TILE_SIZE, 7 * TILE_SIZE, '► Word Shrine: w b  →', signStyle('#f1fa8c'));
+
+    // Near the vertical path — point toward Line Shrine (south)
+    this.add.text(10 * TILE_SIZE, 12 * TILE_SIZE, '▼ Line Shrine: 0 $', signStyle('#8ecae6'));
+
+    // Southern corridor entry — point toward Operator Shrine (east)
+    this.add.text(10 * TILE_SIZE, 21 * TILE_SIZE, '► Operator Shrine: x  →', signStyle('#ffb3c1'));
+
+    // Crate area sign
+    this.add.text(42 * TILE_SIZE, 15 * TILE_SIZE, '► Break crates with x\n  (3 to unlock the gate)', signStyle('#f8f9fa'));
+
+    // Console area sign
+    this.add.text(21 * TILE_SIZE, 8 * TILE_SIZE, '▼ River Console\n  Press i to build bridge', signStyle('#a8dadc'));
+
+    // Flag label
     this.add.text(27 * TILE_SIZE, 3 * TILE_SIZE, '★ Level 1 Flag ★', {
       fontFamily: 'Courier New',
       fontSize: '18px',
       color: '#f1c40f',
-    });
-
-    this.add.text(42 * TILE_SIZE, 15 * TILE_SIZE, 'Break crates with x', {
-      fontFamily: 'Courier New',
-      fontSize: '18px',
-      color: '#f8f9fa',
     });
 
     // Set world bounds
@@ -264,6 +308,7 @@ export class WorldScene extends Phaser.Scene {
 
     // R to restart
     this.input.keyboard?.once('keydown-R', () => {
+      clearSavedState();
       this.scene.restart();
       this.registry.set('gameState', null);
     });
@@ -359,33 +404,51 @@ export class WorldScene extends Phaser.Scene {
       const tile = getTileAt(this.tilemapData, x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
 
       if (tile.id === TILE_IDS.crate) {
-        // Change crate to path
-        setTileAt(this.tilemapData, x, y, TILE_IDS.path);
-        
+        // Animate crate destruction
+        const crateImage = this.tilemapData.tileImages.get(`${x},${y}`);
+        if (crateImage) {
+          this.cameras.main.shake(120, 0.006);
+          this.tweens.add({
+            targets: crateImage,
+            scaleX: 0,
+            scaleY: 0,
+            angle: 45,
+            alpha: 0,
+            duration: 220,
+            ease: 'Back.easeIn',
+            onComplete: () => {
+              crateImage.setScale(1).setAlpha(1).setAngle(0);
+              setTileAt(this.tilemapData, x, y, TILE_IDS.path);
+            },
+          });
+        } else {
+          setTileAt(this.tilemapData, x, y, TILE_IDS.path);
+        }
+
         // Increment crate destruction counter
         const state = this.getState();
         const newCount = state.cratesDestroyed + 1;
-        
+
         // Check if all 3 crates are destroyed
         if (newCount >= 3) {
-          this.syncState({ 
+          this.syncState({
             cratesDestroyed: newCount,
             gateUnlocked: true,
-            hint: 'All crates destroyed! The gate to Wave 1 is now open. You found the i command!' 
+            hint: 'All crates destroyed! The gate to Wave 1 is now open. You found the i command!',
           });
           this.showToast('All crates broken! Gate unlocked! Found i command!');
           this.openGate();
-          
+
           // Unlock the 'i' command as a reward
           const unlocked = new Set(state.unlockedCommands);
           unlocked.add('i');
-          this.syncState({ 
-            unlockedCommands: Array.from(unlocked)
+          this.syncState({
+            unlockedCommands: Array.from(unlocked),
           });
         } else {
-          this.syncState({ 
+          this.syncState({
             cratesDestroyed: newCount,
-            hint: `Crate destroyed (${newCount}/3). Destroy all crates to unlock the gate.` 
+            hint: `Crate destroyed (${newCount}/3). Destroy all crates to unlock the gate.`,
           });
           this.showToast('Crate removed with x');
         }
@@ -421,18 +484,30 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.setMode('insert');
+
+    if (this.bridgeBuilt) {
+      this.syncState({ hint: 'Bridge already built. Cross the river to reach the flag.' });
+      return;
+    }
+
+    this.bridgeBuilt = true;
     // Activate bridge - 3 tiles wide (cols 28-30) across the full river (rows 10-12)
     for (const col of [28, 29, 30]) {
       setTileAt(this.tilemapData, col, 10, TILE_IDS.path);
       setTileAt(this.tilemapData, col, 11, TILE_IDS.path);
       setTileAt(this.tilemapData, col, 12, TILE_IDS.path);
     }
-    this.syncState({ hint: 'Bridge activated. Cross the river to reach the Wave 1 gate.' });
+    this.syncState({ bridgeBuilt: true, hint: 'Bridge activated. Cross the river to reach the Wave 1 gate.' });
     this.showToast('Insert console activated the bridge');
   }
 
   private setMode(mode: VimMode) {
     this.syncState({ mode });
+    if (mode === 'insert') {
+      this.player.setTint(0x88ccff);
+    } else {
+      this.player.clearTint();
+    }
   }
 
   private hasCommand(command: string): boolean {
@@ -452,6 +527,7 @@ export class WorldScene extends Phaser.Scene {
   private syncState(patch: Partial<GameState>) {
     const nextState = { ...this.getState(), ...patch };
     this.registry.set(REGISTRY_KEYS.state, nextState);
+    saveState(nextState);
   }
 
   private showToast(text: string) {

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { defaultGameState, REGISTRY_KEYS } from '../game/state';
+import { defaultGameState, loadSavedState, REGISTRY_KEYS } from '../game/state';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -7,7 +7,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    this.registry.set(REGISTRY_KEYS.state, defaultGameState());
+    const saved = loadSavedState();
+    this.registry.set(REGISTRY_KEYS.state, saved ?? defaultGameState());
     this.scene.start('preload');
   }
 }
