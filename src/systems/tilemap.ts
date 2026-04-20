@@ -13,6 +13,8 @@ export const TILE_IDS = {
   bridge: 7,
   crate: 8,
   flag: 9,
+  dungeon: 10, // dungeon entrance portal
+  npc: 11,     // NPC mentor tile (visual only — not blocked)
 } as const;
 
 export type TileId = (typeof TILE_IDS)[keyof typeof TILE_IDS];
@@ -29,6 +31,8 @@ export const tileTextureMap: Record<number, string> = {
   [TILE_IDS.bridge]: 'tile-bridge',
   [TILE_IDS.crate]: 'tile-crate',
   [TILE_IDS.flag]: 'tile-flag',
+  [TILE_IDS.dungeon]: 'tile-dungeon',
+  [TILE_IDS.npc]: 'tile-npc',
 };
 
 // Tiles that block player movement
@@ -73,6 +77,12 @@ export const SHRINES = [
 export const MARKER_ROW_Y = 22;
 export const MARKER_POINTS = [13, 18, 24, 30, 36, 43];
 export const CONSOLE_POSITION = { x: 29, y: 13 };
+
+// Dungeon entrance — placed on the northern path near the spawn
+export const DUNGEON_ENTRANCE_POSITION = { x: 4, y: 4 };
+
+// NPC Mentor — stands near spawn on the path, 1 tile east of player start
+export const NPC_MENTOR_POSITION = { x: 6, y: 6 };
 
 // The gate shrine tile and the full vertical wall that physically blocks
 // passage east of x=41 until all crates are destroyed.
@@ -273,6 +283,9 @@ function generateOverworldData(width: number, height: number): number[][] {
   for (const { x, y } of FLAG_ENCLOSURE_WALLS) {
     data[y][x] = TILE_IDS.wall;
   }
+
+  // Dungeon entrance portal — on the open grass north of spawn
+  data[DUNGEON_ENTRANCE_POSITION.y][DUNGEON_ENTRANCE_POSITION.x] = TILE_IDS.dungeon;
 
   return data;
 }

@@ -1,13 +1,12 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../game/config';
-import { GameState, REGISTRY_KEYS } from '../game/state';
+import { COMMAND_REGISTRY, GameState, REGISTRY_KEYS } from '../game/state';
 
 export class UIScene extends Phaser.Scene {
   private modeText!: Phaser.GameObjects.Text;
   private areaText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
-  private commandsText!: Phaser.GameObjects.Text;
-  private commandBox!: Phaser.GameObjects.Rectangle;
+  private commandsContainer!: Phaser.GameObjects.Container;
 
   constructor() {
     super('ui');
@@ -16,27 +15,32 @@ export class UIScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
 
-    // Top info panel
-    this.add.rectangle(12, 12, GAME_WIDTH - 24, 140, 0x06100f, 0.85)
+    // Top info panel background
+    this.add
+      .rectangle(12, 12, GAME_WIDTH - 24, 150, 0x06100f, 0.88)
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0x3a5a40, 1);
 
-    // Mode and area
-    this.modeText = this.add.text(28, 24, '', this.textStyle('#f1fa8c', 20, 'bold'));
-    this.areaText = this.add.text(240, 24, '', this.textStyle('#8ecae6', 18));
+    // Mode + Area row
+    this.modeText = this.add.text(28, 24, '', this.style('#f1fa8c', 20, 'bold'));
+    this.areaText = this.add.text(240, 24, '', this.style('#8ecae6', 18));
 
-    // Commands section with background
-    this.commandBox = this.add.rectangle(24, 58, GAME_WIDTH - 48, 36, 0x1a2f23, 0.8)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x5a8a5a, 0.6);
+    // Commands label
+    this.add.text(32, 58, 'COMMANDS', this.style('#7cb48a', 11));
 
-    this.add.text(32, 64, 'COMMANDS', this.textStyle('#7cb48a', 12));
-    this.commandsText = this.add.text(120, 64, '', this.textStyle('#e9f5db', 16, 'bold'));
+    // Commands row — rendered dynamically in refresh()
+    this.commandsContainer = this.add.container(120, 54);
 
-    // Hint section
-    this.add.text(32, 104, 'HINT', this.textStyle('#7cb48a', 12));
-    this.hintText = this.add.text(80, 100, '', this.textStyle('#c8f7dc', 15))
+    // Hint row
+    this.add.text(32, 110, 'HINT', this.style('#7cb48a', 11));
+    this.hintText = this.add
+      .text(80, 107, '', this.style('#c8f7dc', 14))
       .setWordWrapWidth(GAME_WIDTH - 120);
+
+    // Legend: locked indicator
+    this.add
+      .text(GAME_WIDTH - 20, 58, '■ locked  ■ unlocked', this.style('#556b55', 10))
+      .setOrigin(1, 0);
 
     this.registry.events.on('changedata', this.refresh, this);
     this.refresh();
@@ -48,30 +52,55 @@ export class UIScene extends Phaser.Scene {
 
   private refresh() {
     const state = this.registry.get(REGISTRY_KEYS.state) as GameState;
-    if (!state) {
-      return;
-    }
+    if (!state) return;
 
     this.modeText.setText(`[${state.mode.toUpperCase()}]`);
-    this.areaText.setText(`${state.areaName}`);
-
-    // Format commands nicely
-    const commands = state.unlockedCommands.join('  ');
-    this.commandsText.setText(commands);
-
+    this.areaText.setText(state.areaName);
     this.hintText.setText(state.hint);
+
+    // Rebuild command chips
+    this.commandsContainer.removeAll(true);
+
+    const unlocked = new Set(state.unlockedCommands);
+    // Show only tier 1–4 commands in the HUD (first 13)
+    const toShow = COMMAND_REGISTRY.slice(0, 13);
+
+    let offsetX = 0;
+    for (const def of toShow) {
+      const isUnlocked = unlocked.has(def.key);
+      const bgColor = isUnlocked ? 0x1a3a1a : 0x1a1a1a;
+      const textColor = isUnlocked ? '#7aff7a' : '#444444';
+      const borderColor = isUnlocked ? 0x3a8a3a : 0x333333;
+
+      const chipW = def.key.length <= 1 ? 28 : 36;
+      const chipH = 22;
+
+      const bg = this.add.rectangle(offsetX + chipW / 2, chipH / 2, chipW, chipH, bgColor, 1)
+        .setStrokeStyle(1, borderColor, 1);
+      this.commandsContainer.add(bg);
+
+      const label = this.add.text(offsetX + chipW / 2, chipH / 2, def.key, {
+        fontFamily: 'Courier New',
+        fontSize: '13px',
+        color: textColor,
+        fontStyle: isUnlocked ? 'bold' : 'normal',
+      }).setOrigin(0.5);
+      this.commandsContainer.add(label);
+
+      offsetX += chipW + 4;
+    }
   }
 
-  private textStyle(
+  private style(
     color: string,
-    fontSize: number,
-    fontStyle: string = 'normal'
+    size: number,
+    fontStyle: string = 'normal',
   ): Phaser.Types.GameObjects.Text.TextStyle {
     return {
       fontFamily: 'Courier New, monospace',
-      fontSize: `${fontSize}px`,
+      fontSize: `${size}px`,
       color,
-      fontStyle: fontStyle as 'normal' | 'bold' | 'italic',
+      fontStyle: fontStyle as 'normal' | 'bold',
     };
   }
 }

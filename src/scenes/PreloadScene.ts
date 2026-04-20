@@ -51,6 +51,35 @@ export class PreloadScene extends Phaser.Scene {
     flag.generateTexture('tile-flag', TILE_SIZE, TILE_SIZE);
     flag.destroy();
 
+    // Dungeon entrance portal — deep purple with a glowing arch symbol
+    const dungeon = this.add.graphics();
+    dungeon.fillStyle(0x1a0a2e, 1);
+    dungeon.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    dungeon.lineStyle(2, 0x9b59b6, 1);
+    dungeon.strokeRect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2);
+    // Arch / doorway shape
+    dungeon.lineStyle(2, 0xe056fd, 1);
+    dungeon.strokeRect(8, 8, TILE_SIZE - 16, TILE_SIZE - 16);
+    dungeon.fillStyle(0xe056fd, 1);
+    dungeon.fillRect(12, 12, TILE_SIZE - 24, TILE_SIZE - 24);
+    dungeon.generateTexture('tile-dungeon', TILE_SIZE, TILE_SIZE);
+    dungeon.destroy();
+
+    // NPC mentor tile — bright teal with a person symbol
+    const npc = this.add.graphics();
+    npc.fillStyle(0x006d6d, 1);
+    npc.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    npc.lineStyle(2, 0x00ffcc, 0.8);
+    npc.strokeRect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2);
+    // Head
+    npc.fillStyle(0xf1fa8c, 1);
+    npc.fillCircle(TILE_SIZE / 2, 10, 5);
+    // Body
+    npc.fillStyle(0x00ffcc, 1);
+    npc.fillRect(TILE_SIZE / 2 - 5, 16, 10, 10);
+    npc.generateTexture('tile-npc', TILE_SIZE, TILE_SIZE);
+    npc.destroy();
+
     const player = this.add.graphics();
     player.fillStyle(0xf1fa8c, 1);
     player.fillRoundedRect(4, 4, TILE_SIZE - 8, TILE_SIZE - 8, 8);

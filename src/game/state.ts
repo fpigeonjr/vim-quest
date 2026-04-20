@@ -9,18 +9,53 @@ export type GameState = {
   gateUnlocked: boolean;
   bridgeBuilt: boolean;
   level1Complete: boolean;
+  dungeonVisited: boolean;
+  masteryRelicFound: boolean;
+  mentorMet: boolean;
 };
 
 export const defaultGameState = (): GameState => ({
   mode: 'normal',
   areaName: 'Cursor Meadow',
-  hint: 'Find the movement shrine and explore the meadow.',
+  hint: 'Speak to the Mentor near the entrance to learn the ways of Vim.',
+  // Only h j k l Esc are available at start — others unlock via shrines/dungeon
   unlockedCommands: ['h', 'j', 'k', 'l', 'Esc'],
   cratesDestroyed: 0,
   gateUnlocked: false,
   bridgeBuilt: false,
   level1Complete: false,
+  dungeonVisited: false,
+  masteryRelicFound: false,
+  mentorMet: false,
 });
+
+// Full command registry — defines every command's display label and unlock tier
+export type CommandDef = {
+  key: string;
+  label: string;
+  description: string;
+  tier: number;
+};
+
+export const COMMAND_REGISTRY: CommandDef[] = [
+  { key: 'h',   label: 'h',   description: 'Move left',           tier: 1 },
+  { key: 'j',   label: 'j',   description: 'Move down',           tier: 1 },
+  { key: 'k',   label: 'k',   description: 'Move up',             tier: 1 },
+  { key: 'l',   label: 'l',   description: 'Move right',          tier: 1 },
+  { key: 'Esc', label: 'Esc', description: 'Normal mode',         tier: 1 },
+  { key: 'w',   label: 'w',   description: 'Word forward',        tier: 2 },
+  { key: 'b',   label: 'b',   description: 'Word back',           tier: 2 },
+  { key: 'e',   label: 'e',   description: 'Word end',            tier: 2 },
+  { key: '0',   label: '0',   description: 'Line start',          tier: 3 },
+  { key: '$',   label: '$',   description: 'Line end',            tier: 3 },
+  { key: 'x',   label: 'x',   description: 'Delete character',    tier: 3 },
+  { key: 'i',   label: 'i',   description: 'Insert mode',         tier: 4 },
+  { key: 'a',   label: 'a',   description: 'Append',              tier: 4 },
+  { key: 'dd',  label: 'dd',  description: 'Delete line',         tier: 4 },
+  { key: 'yy',  label: 'yy',  description: 'Yank line',           tier: 4 },
+  { key: 'p',   label: 'p',   description: 'Paste',               tier: 4 },
+  { key: 'u',   label: 'u',   description: 'Undo',                tier: 4 },
+];
 
 export const REGISTRY_KEYS = {
   state: 'gameState',

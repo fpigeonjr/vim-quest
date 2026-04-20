@@ -4,17 +4,62 @@ import {
   CONSOLE_POSITION,
   createOverworldTilemap,
   createTileCollisions,
+  DUNGEON_ENTRANCE_POSITION,
   FLAG_POSITION,
   GATE_WALL_TILES,
   getTileAt,
   MARKER_POINTS,
   MARKER_ROW_Y,
+  NPC_MENTOR_POSITION,
   setTileAt,
   SHRINES,
   TILE_IDS,
   TilemapData,
 } from '../systems/tilemap';
 import { GameState, REGISTRY_KEYS, VimMode, saveState, clearSavedState } from '../game/state';
+
+// ─── NPC Mentor dialogue lines ────────────────────────────────────────────────
+
+const MENTOR_DIALOGUES: string[][] = [
+  // First meeting
+  [
+    'Welcome, Traveller. I am the Vim Mentor.',
+    'This land is shaped by the ancient keys of movement.',
+    '',
+    'You begin with the four cardinal commands:',
+    '  h ← left     l → right',
+    '  j ↓ down      k ↑ up',
+    '',
+    'North of here lies the Cursor Shrine — enter and',
+    'prove your mastery to unlock new abilities.',
+    '',
+    '[Press Space or Enter to continue]',
+  ],
+  // Second visit
+  [
+    'The shrines scattered across the meadow teach',
+    'new commands when you walk upon them.',
+    '',
+    'The Word Shrine grants  w  and  b  — jump by word.',
+    'The Line Shrine grants  0  and  $  — snap to line ends.',
+    'The Operator Shrine grants  x  — delete / break.',
+    '',
+    'Find them, use them, master them.',
+    '',
+    '[Press Space or Enter to close]',
+  ],
+  // Third visit (relic already found)
+  [
+    'You have found the Movement Mastery Relic.',
+    'The cursor flows through you now.',
+    '',
+    'Cross the river with  i  at the console.',
+    'Break the crates. Reach the flag. Your journey',
+    'through Cursor Meadow nears its end.',
+    '',
+    '[Press Space or Enter to close]',
+  ],
+];
 
 export class WorldScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -23,67 +68,72 @@ export class WorldScene extends Phaser.Scene {
   private shrineVisits = new Set<string>();
   private bridgeBuilt = false;
 
+  // NPC state
+  private npcSprite!: Phaser.GameObjects.Image;
+  private npcLabel!: Phaser.GameObjects.Text;
+  private npcPrompt!: Phaser.GameObjects.Text;
+  private mentorVisitCount = 0;
+  private dialogueBox?: Phaser.GameObjects.Container;
+  private dialogueActive = false;
+
+  // Dungeon entrance glow + transition guard
+  private dungeonGlow!: Phaser.GameObjects.Rectangle;
+  private enteringDungeon = false;
+
   constructor() {
     super('world');
   }
 
   create() {
+    this.dialogueActive = false;
+    this.dialogueBox = undefined;
+    this.enteringDungeon = false;
+
+    // When this scene wakes after dungeon exit, reset transition guard
+    this.events.on('wake', () => {
+      this.enteringDungeon = false;
+      // Fade back in
+      this.cameras.main.fadeIn(350, 0, 0, 0);
+    });
+
     this.buildWorld();
     this.createPlayer();
     this.createCollisions();
+    this.createNPC();
+    this.createDungeonEntrance();
     this.createInput();
+
+    const state = this.getState();
     this.syncState({
       areaName: 'Cursor Meadow',
-      hint: 'Visit shrines to unlock commands and test them in the meadow.',
+      hint: state.mentorMet
+        ? 'Return to the Cursor Shrine or explore the shrines in the meadow.'
+        : 'Speak to the Mentor near spawn. Walk close and press Space or Enter.',
     });
     this.restoreFromState();
   }
 
   update() {
+    if (this.dialogueActive) {
+      this.player.setVelocity(0, 0);
+      return;
+    }
     this.handleMovement();
+    this.checkDungeonEntrance();
+    this.checkNPCProximity();
   }
 
-  /**
-   * After map + collisions are set up, apply any previously saved progress
-   * (open gate, build bridge) so the world matches the loaded save state.
-   */
-  private restoreFromState() {
-    const state = this.getState();
-
-    if (state.gateUnlocked) {
-      this.openGate();
-    }
-
-    if (state.bridgeBuilt) {
-      this.bridgeBuilt = true;
-      for (const col of [28, 29, 30]) {
-        setTileAt(this.tilemapData, col, 10, TILE_IDS.path);
-        setTileAt(this.tilemapData, col, 11, TILE_IDS.path);
-        setTileAt(this.tilemapData, col, 12, TILE_IDS.path);
-      }
-    }
-
-    // Shrine visits — mark any shrine whose commands are already unlocked
-    const unlocked = new Set(state.unlockedCommands);
-    for (const shrine of SHRINES) {
-      if (shrine.unlock.length > 0 && shrine.unlock.every((c) => unlocked.has(c))) {
-        this.shrineVisits.add(shrine.title);
-      }
-    }
-  }
+  // ─── World building ───────────────────────────────────────────────────────
 
   private buildWorld() {
-    // Create tilemap using the new system
     this.tilemapData = createOverworldTilemap(this);
 
-    // ── Area label ────────────────────────────────────────────────────────────
     this.add.text(5 * TILE_SIZE, 4 * TILE_SIZE, 'Cursor Meadow', {
       fontFamily: 'Courier New',
       fontSize: '24px',
       color: '#f1fa8c',
     });
 
-    // ── Signposts / directional hints ─────────────────────────────────────────
     const signStyle = (color = '#e2f0cb') => ({
       fontFamily: 'Courier New',
       fontSize: '13px',
@@ -92,29 +142,26 @@ export class WorldScene extends Phaser.Scene {
       padding: { x: 6, y: 3 },
     });
 
-    // Near spawn — point toward Word Shrine (east on row 6)
+    // Near spawn
     this.add.text(5 * TILE_SIZE, 7 * TILE_SIZE, '► Word Shrine: w b  →', signStyle('#f1fa8c'));
-
-    // Near the vertical path — point toward Line Shrine (south)
+    // Dungeon entrance label
+    this.add.text(
+      DUNGEON_ENTRANCE_POSITION.x * TILE_SIZE - 10,
+      (DUNGEON_ENTRANCE_POSITION.y - 1) * TILE_SIZE,
+      '▼ Cursor Shrine',
+      signStyle('#c77dff'),
+    );
+    // Path south
     this.add.text(10 * TILE_SIZE, 12 * TILE_SIZE, '▼ Line Shrine: 0 $', signStyle('#8ecae6'));
-
-    // Southern corridor entry — point toward Operator Shrine (east)
     this.add.text(10 * TILE_SIZE, 21 * TILE_SIZE, '► Operator Shrine: x  →', signStyle('#ffb3c1'));
-
-    // Crate area sign
     this.add.text(42 * TILE_SIZE, 15 * TILE_SIZE, '► Break crates with x\n  (3 to unlock the gate)', signStyle('#f8f9fa'));
-
-    // Console area sign
     this.add.text(21 * TILE_SIZE, 8 * TILE_SIZE, '▼ River Console\n  Press i to build bridge', signStyle('#a8dadc'));
-
-    // Flag label
     this.add.text(27 * TILE_SIZE, 3 * TILE_SIZE, '★ Level 1 Flag ★', {
       fontFamily: 'Courier New',
       fontSize: '18px',
       color: '#f1c40f',
     });
 
-    // Set world bounds
     const { width, height } = this.tilemapData;
     this.physics.world.setBounds(0, 0, width * TILE_SIZE, height * TILE_SIZE);
     this.cameras.main.setBounds(0, 0, width * TILE_SIZE, height * TILE_SIZE);
@@ -132,9 +179,173 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private createCollisions() {
-    // Create collisions for blocked tiles
     createTileCollisions(this, this.tilemapData, this.player);
   }
+
+  // ─── NPC Mentor ───────────────────────────────────────────────────────────
+
+  private createNPC() {
+    const nx = NPC_MENTOR_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
+    const ny = NPC_MENTOR_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
+
+    this.npcSprite = this.add.image(nx, ny, 'tile-npc').setDepth(5);
+
+    this.npcLabel = this.add
+      .text(nx, ny - TILE_SIZE, 'MENTOR', {
+        fontFamily: 'Courier New',
+        fontSize: '11px',
+        color: '#00ffcc',
+        backgroundColor: '#051a1a',
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(6);
+
+    // Interaction prompt — shown when nearby
+    this.npcPrompt = this.add
+      .text(nx, ny - TILE_SIZE * 1.6, '[Space] Talk', {
+        fontFamily: 'Courier New',
+        fontSize: '11px',
+        color: '#f1fa8c',
+        backgroundColor: '#1a1a0d',
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(6)
+      .setVisible(false);
+
+    // Bob animation
+    this.tweens.add({
+      targets: [this.npcSprite, this.npcLabel],
+      y: '-=4',
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private checkNPCProximity() {
+    const nx = NPC_MENTOR_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
+    const ny = NPC_MENTOR_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, nx, ny);
+    const near = dist < TILE_SIZE * 2;
+    this.npcPrompt.setVisible(near);
+  }
+
+  private talkToMentor() {
+    const state = this.getState();
+    const visitIndex = Math.min(
+      this.mentorVisitCount,
+      state.masteryRelicFound ? 2 : 1,
+    );
+    const lines = MENTOR_DIALOGUES[visitIndex] ?? MENTOR_DIALOGUES[0];
+
+    this.mentorVisitCount++;
+    if (!state.mentorMet) {
+      this.syncState({ mentorMet: true });
+    }
+
+    this.showDialogue('Vim Mentor', lines);
+  }
+
+  // ─── Dungeon entrance ─────────────────────────────────────────────────────
+
+  private createDungeonEntrance() {
+    const dx = DUNGEON_ENTRANCE_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
+    const dy = DUNGEON_ENTRANCE_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
+
+    // Pulsing glow rectangle behind the entrance tile
+    this.dungeonGlow = this.add
+      .rectangle(dx, dy, TILE_SIZE + 8, TILE_SIZE + 8, 0xe056fd, 0.35)
+      .setDepth(1);
+
+    this.tweens.add({
+      targets: this.dungeonGlow,
+      alpha: 0.7,
+      scaleX: 1.1,
+      scaleY: 1.1,
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private checkDungeonEntrance() {
+    if (this.enteringDungeon) return;
+    const tile = getTileAt(this.tilemapData, this.player.x, this.player.y);
+    if (
+      tile.x === DUNGEON_ENTRANCE_POSITION.x &&
+      tile.y === DUNGEON_ENTRANCE_POSITION.y
+    ) {
+      this.enterDungeon();
+    }
+  }
+
+  private enterDungeon() {
+    this.enteringDungeon = true;
+    this.player.setVelocity(0, 0);
+    this.cameras.main.fadeOut(350, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.sleep('world');
+      this.scene.launch('dungeon');
+    });
+  }
+
+  // ─── Dialogue box ─────────────────────────────────────────────────────────
+
+  private showDialogue(speaker: string, lines: string[]) {
+    this.dialogueActive = true;
+    if (this.dialogueBox) this.dialogueBox.destroy();
+
+    const boxW = 700;
+    const boxH = 210;
+
+    // Position relative to camera
+    const camX = this.cameras.main.scrollX;
+    const camY = this.cameras.main.scrollY;
+    const zoom = this.cameras.main.zoom;
+    const viewW = this.cameras.main.width / zoom;
+    const viewH = this.cameras.main.height / zoom;
+
+    const boxX = camX + (viewW - boxW) / 2;
+    const boxY = camY + viewH - boxH - 20;
+
+    const container = this.add.container(0, 0).setDepth(50);
+
+    const bg = this.add.rectangle(
+      boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0x050d0c, 0.96,
+    ).setStrokeStyle(2, 0x00ffcc, 1);
+    container.add(bg);
+
+    const speakerText = this.add.text(boxX + 16, boxY + 12, `[ ${speaker} ]`, {
+      fontFamily: 'Courier New', fontSize: '14px', color: '#00ffcc', fontStyle: 'bold',
+    });
+    container.add(speakerText);
+
+    const bodyText = this.add.text(boxX + 16, boxY + 36, lines.join('\n'), {
+      fontFamily: 'Courier New', fontSize: '13px', color: '#e9f5db',
+      lineSpacing: 3, wordWrap: { width: boxW - 32 },
+    });
+    container.add(bodyText);
+
+    this.dialogueBox = container;
+
+    this.tweens.add({
+      targets: bg, strokeAlpha: 0.3, duration: 800, yoyo: true, repeat: -1,
+    });
+  }
+
+  private closeDialogue() {
+    this.dialogueActive = false;
+    if (this.dialogueBox) {
+      this.dialogueBox.destroy();
+      this.dialogueBox = undefined;
+    }
+  }
+
+  // ─── Input ────────────────────────────────────────────────────────────────
 
   private createInput() {
     this.cursors = this.input.keyboard!.addKeys({
@@ -154,7 +365,6 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ZERO', () => this.handleLineSnap('start'));
     this.input.keyboard?.on('keydown-X', () => this.handleBreakCrate());
     this.input.keyboard?.on('keydown-I', () => this.handleInsertAction());
-    // Also listen for lowercase i
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
       if (event.key === 'i' || event.key === 'I') {
         this.handleInsertAction();
@@ -163,8 +373,73 @@ export class WorldScene extends Phaser.Scene {
         this.handleLineSnap('end');
       }
     });
-    this.input.keyboard?.on('keydown-ESC', () => this.setMode('normal'));
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.dialogueActive) {
+        this.closeDialogue();
+      } else {
+        this.setMode('normal');
+      }
+    });
+    this.input.keyboard?.on('keydown-SPACE', () => {
+      if (this.dialogueActive) {
+        this.closeDialogue();
+        return;
+      }
+      // Check NPC proximity
+      const nx = NPC_MENTOR_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
+      const ny = NPC_MENTOR_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, nx, ny);
+      if (dist < TILE_SIZE * 2) {
+        this.talkToMentor();
+      }
+    });
+    this.input.keyboard?.on('keydown-ENTER', () => {
+      if (this.dialogueActive) {
+        this.closeDialogue();
+        return;
+      }
+      // Also allow Enter to talk to NPC
+      const nx = NPC_MENTOR_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
+      const ny = NPC_MENTOR_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, nx, ny);
+      if (dist < TILE_SIZE * 2) {
+        this.talkToMentor();
+      }
+    });
+    this.input.keyboard?.on('keydown-R', () => {
+      clearSavedState();
+      this.scene.restart();
+      this.registry.set('gameState', null);
+    });
   }
+
+  // ─── Restore state ────────────────────────────────────────────────────────
+
+  private restoreFromState() {
+    const state = this.getState();
+
+    if (state.gateUnlocked) {
+      this.openGate();
+    }
+
+    if (state.bridgeBuilt) {
+      this.bridgeBuilt = true;
+      for (const col of [28, 29, 30]) {
+        setTileAt(this.tilemapData, col, 10, TILE_IDS.path);
+        setTileAt(this.tilemapData, col, 11, TILE_IDS.path);
+        setTileAt(this.tilemapData, col, 12, TILE_IDS.path);
+      }
+    }
+
+    const unlocked = new Set(state.unlockedCommands);
+    for (const shrine of SHRINES) {
+      if (shrine.unlock.length > 0 && shrine.unlock.every((c) => unlocked.has(c))) {
+        this.shrineVisits.add(shrine.title);
+      }
+    }
+  }
+
+  // ─── Movement & tile checks ───────────────────────────────────────────────
 
   private handleMovement() {
     const state = this.getState();
@@ -172,17 +447,11 @@ export class WorldScene extends Phaser.Scene {
     let vx = 0;
     let vy = 0;
 
-    if (this.cursors.h.isDown) {
-      vx = -speed;
-    } else if (this.cursors.l.isDown) {
-      vx = speed;
-    }
+    if (this.cursors.h.isDown) { vx = -speed; }
+    else if (this.cursors.l.isDown) { vx = speed; }
 
-    if (this.cursors.k.isDown) {
-      vy = -speed;
-    } else if (this.cursors.j.isDown) {
-      vy = speed;
-    }
+    if (this.cursors.k.isDown) { vy = -speed; }
+    else if (this.cursors.j.isDown) { vy = speed; }
 
     this.player.setVelocity(vx, vy);
     this.checkShrines();
@@ -192,17 +461,12 @@ export class WorldScene extends Phaser.Scene {
   private checkShrines() {
     const { x, y } = getTileAt(this.tilemapData, this.player.x, this.player.y);
     const shrine = SHRINES.find((entry) => entry.x === x && entry.y === y);
-    if (!shrine || this.shrineVisits.has(shrine.title)) {
-      return;
-    }
+    if (!shrine || this.shrineVisits.has(shrine.title)) return;
 
-    // Check if this is the Wave 1 Gate and if crates are not destroyed yet
     if (shrine.title === 'Wave 1 Gate') {
       const state = this.getState();
       if (!state.gateUnlocked) {
-        this.syncState({ 
-          hint: 'The gate wall blocks your path! Destroy all 3 crates with x to open it.' 
-        });
+        this.syncState({ hint: 'The gate wall blocks your path! Destroy all 3 crates with x to open it.' });
         this.showToast('Gate wall locked — break the crates with x first!');
         return;
       }
@@ -211,14 +475,9 @@ export class WorldScene extends Phaser.Scene {
     this.shrineVisits.add(shrine.title);
     const state = this.getState();
     const unlocked = new Set(state.unlockedCommands);
-    for (const command of shrine.unlock) {
-      unlocked.add(command);
-    }
+    for (const command of shrine.unlock) { unlocked.add(command); }
 
-    this.syncState({
-      unlockedCommands: Array.from(unlocked),
-      hint: shrine.hint,
-    });
+    this.syncState({ unlockedCommands: Array.from(unlocked), hint: shrine.hint });
 
     if (shrine.unlock.length > 0) {
       this.showToast(`${shrine.title}: unlocked ${shrine.unlock.join(' ')}`);
@@ -233,13 +492,11 @@ export class WorldScene extends Phaser.Scene {
 
     const tile = getTileAt(this.tilemapData, this.player.x, this.player.y);
     if (tile.x === FLAG_POSITION.x && tile.y === FLAG_POSITION.y) {
-      // Check if player has unlocked the gate before allowing flag capture
       if (!state.gateUnlocked) {
         this.syncState({ hint: 'The path is blocked! Destroy all 3 crates with x to proceed.' });
         this.showToast('Path blocked — break the crates with x first!');
         return;
       }
-      
       this.triggerWin();
     }
   }
@@ -250,16 +507,11 @@ export class WorldScene extends Phaser.Scene {
       hint: 'LEVEL 1 COMPLETE! You have mastered the cursor commands. Well done!',
     });
 
-    // Stop player movement
     this.player.setVelocity(0, 0);
     this.player.setActive(false);
 
-    // Confetti burst
-    for (let i = 0; i < 60; i++) {
-      this.spawnConfetti();
-    }
+    for (let i = 0; i < 60; i++) { this.spawnConfetti(); }
 
-    // Win overlay — dark backdrop
     const cx = this.cameras.main.scrollX + this.cameras.main.width / 2 / this.cameras.main.zoom;
     const cy = this.cameras.main.scrollY + this.cameras.main.height / 2 / this.cameras.main.zoom;
 
@@ -268,64 +520,35 @@ export class WorldScene extends Phaser.Scene {
       .setStrokeStyle(3, 0xf1c40f, 1);
 
     this.add.text(cx, cy - 80, '🏆 LEVEL 1 COMPLETE! 🏆', {
-      fontFamily: 'Courier New',
-      fontSize: '26px',
-      color: '#f1c40f',
-      align: 'center',
+      fontFamily: 'Courier New', fontSize: '26px', color: '#f1c40f', align: 'center',
     }).setOrigin(0.5).setDepth(51);
 
     this.add.text(cx, cy - 30, 'You mastered all cursor commands:', {
-      fontFamily: 'Courier New',
-      fontSize: '16px',
-      color: '#c8f7dc',
-      align: 'center',
+      fontFamily: 'Courier New', fontSize: '16px', color: '#c8f7dc', align: 'center',
     }).setOrigin(0.5).setDepth(51);
 
     this.add.text(cx, cy + 10, 'h  j  k  l  w  b  0  $  x  i', {
-      fontFamily: 'Courier New',
-      fontSize: '20px',
-      color: '#7aff7a',
-      align: 'center',
+      fontFamily: 'Courier New', fontSize: '20px', color: '#7aff7a', align: 'center',
     }).setOrigin(0.5).setDepth(51);
 
     this.add.text(cx, cy + 55, 'Press R to play again', {
-      fontFamily: 'Courier New',
-      fontSize: '15px',
-      color: '#8892a0',
-      align: 'center',
+      fontFamily: 'Courier New', fontSize: '15px', color: '#8892a0', align: 'center',
     }).setOrigin(0.5).setDepth(51);
 
-    // Pulse the overlay
     this.tweens.add({
-      targets: overlay,
-      scaleX: 1.02,
-      scaleY: 1.02,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    // R to restart
-    this.input.keyboard?.once('keydown-R', () => {
-      clearSavedState();
-      this.scene.restart();
-      this.registry.set('gameState', null);
+      targets: overlay, scaleX: 1.02, scaleY: 1.02,
+      duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
   }
 
   private spawnConfetti() {
     const colors = [0xf1c40f, 0x2ecc71, 0xe74c3c, 0x00d4ff, 0xff6b6b, 0xf39c12, 0xa29bfe];
     const color = colors[Math.floor(Math.random() * colors.length)];
-
     const px = this.player.x + Phaser.Math.Between(-80, 80);
     const py = this.player.y + Phaser.Math.Between(-60, 20);
 
-    const piece = this.add.rectangle(
-      px, py,
-      Phaser.Math.Between(5, 12),
-      Phaser.Math.Between(5, 12),
-      color,
+    const piece = this.add.rectangle(px, py,
+      Phaser.Math.Between(5, 12), Phaser.Math.Between(5, 12), color,
     ).setDepth(45).setAngle(Phaser.Math.Between(0, 360));
 
     this.tweens.add({
@@ -333,19 +556,17 @@ export class WorldScene extends Phaser.Scene {
       x: px + Phaser.Math.Between(-120, 120),
       y: py + Phaser.Math.Between(60, 200),
       angle: piece.angle + Phaser.Math.Between(-180, 180),
-      alpha: 0,
-      scaleX: 0.2,
-      scaleY: 0.2,
+      alpha: 0, scaleX: 0.2, scaleY: 0.2,
       duration: Phaser.Math.Between(900, 1800),
       ease: 'Quad.easeOut',
       onComplete: () => piece.destroy(),
     });
   }
 
+  // ─── Command actions ──────────────────────────────────────────────────────
+
   private handleWordJump(direction: 1 | -1) {
-    if (!this.hasCommand(direction === 1 ? 'w' : 'b')) {
-      return;
-    }
+    if (!this.hasCommand(direction === 1 ? 'w' : 'b')) return;
 
     const tile = getTileAt(this.tilemapData, this.player.x, this.player.y);
     if (tile.y !== MARKER_ROW_Y) {
@@ -358,6 +579,7 @@ export class WorldScene extends Phaser.Scene {
     const target = direction === 1
       ? markers.find((value) => value > current)
       : markers.slice().reverse().find((value) => value < current);
+
     if (!target) {
       this.syncState({ hint: 'No more markers in that direction.' });
       return;
@@ -369,9 +591,7 @@ export class WorldScene extends Phaser.Scene {
 
   private handleLineSnap(side: 'start' | 'end') {
     const command = side === 'start' ? '0' : '$';
-    if (!this.hasCommand(command)) {
-      return;
-    }
+    if (!this.hasCommand(command)) return;
 
     const tile = getTileAt(this.tilemapData, this.player.x, this.player.y);
     if (tile.y !== MARKER_ROW_Y) {
@@ -385,16 +605,11 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private handleBreakCrate() {
-    if (!this.hasCommand('x')) {
-      return;
-    }
+    if (!this.hasCommand('x')) return;
 
     const neighbors = [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
+      { x: 0, y: 0 }, { x: 1, y: 0 }, { x: -1, y: 0 },
+      { x: 0, y: 1 }, { x: 0, y: -1 },
     ];
     const current = getTileAt(this.tilemapData, this.player.x, this.player.y);
 
@@ -404,18 +619,13 @@ export class WorldScene extends Phaser.Scene {
       const tile = getTileAt(this.tilemapData, x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2);
 
       if (tile.id === TILE_IDS.crate) {
-        // Animate crate destruction
         const crateImage = this.tilemapData.tileImages.get(`${x},${y}`);
         if (crateImage) {
           this.cameras.main.shake(120, 0.006);
           this.tweens.add({
             targets: crateImage,
-            scaleX: 0,
-            scaleY: 0,
-            angle: 45,
-            alpha: 0,
-            duration: 220,
-            ease: 'Back.easeIn',
+            scaleX: 0, scaleY: 0, angle: 45, alpha: 0,
+            duration: 220, ease: 'Back.easeIn',
             onComplete: () => {
               crateImage.setScale(1).setAlpha(1).setAngle(0);
               setTileAt(this.tilemapData, x, y, TILE_IDS.path);
@@ -425,26 +635,20 @@ export class WorldScene extends Phaser.Scene {
           setTileAt(this.tilemapData, x, y, TILE_IDS.path);
         }
 
-        // Increment crate destruction counter
         const state = this.getState();
         const newCount = state.cratesDestroyed + 1;
 
-        // Check if all 3 crates are destroyed
         if (newCount >= 3) {
           this.syncState({
-            cratesDestroyed: newCount,
-            gateUnlocked: true,
+            cratesDestroyed: newCount, gateUnlocked: true,
             hint: 'All crates destroyed! The gate to Wave 1 is now open. You found the i command!',
           });
           this.showToast('All crates broken! Gate unlocked! Found i command!');
           this.openGate();
 
-          // Unlock the 'i' command as a reward
           const unlocked = new Set(state.unlockedCommands);
           unlocked.add('i');
-          this.syncState({
-            unlockedCommands: Array.from(unlocked),
-          });
+          this.syncState({ unlockedCommands: Array.from(unlocked) });
         } else {
           this.syncState({
             cratesDestroyed: newCount,
@@ -459,10 +663,6 @@ export class WorldScene extends Phaser.Scene {
     this.syncState({ hint: 'Nothing breakable is next to you.' });
   }
 
-  /**
-   * Remove the gate wall tiles when all crates have been destroyed,
-   * opening the physical passage east of the Wave 1 Gate shrine.
-   */
   private openGate() {
     for (const { x, y } of GATE_WALL_TILES) {
       setTileAt(this.tilemapData, x, y, TILE_IDS.path);
@@ -470,9 +670,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private handleInsertAction() {
-    if (!this.hasCommand('i')) {
-      return;
-    }
+    if (!this.hasCommand('i')) return;
 
     const current = getTileAt(this.tilemapData, this.player.x, this.player.y);
     const onConsole = current.x === CONSOLE_POSITION.x && current.y === CONSOLE_POSITION.y;
@@ -491,7 +689,6 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.bridgeBuilt = true;
-    // Activate bridge - 3 tiles wide (cols 28-30) across the full river (rows 10-12)
     for (const col of [28, 29, 30]) {
       setTileAt(this.tilemapData, col, 10, TILE_IDS.path);
       setTileAt(this.tilemapData, col, 11, TILE_IDS.path);
@@ -503,20 +700,14 @@ export class WorldScene extends Phaser.Scene {
 
   private setMode(mode: VimMode) {
     this.syncState({ mode });
-    if (mode === 'insert') {
-      this.player.setTint(0x88ccff);
-    } else {
-      this.player.clearTint();
-    }
+    if (mode === 'insert') { this.player.setTint(0x88ccff); }
+    else { this.player.clearTint(); }
   }
 
   private hasCommand(command: string): boolean {
     const state = this.getState();
-    if (state.unlockedCommands.includes(command)) {
-      return true;
-    }
-
-    this.syncState({ hint: `That command is still locked: ${command}` });
+    if (state.unlockedCommands.includes(command)) return true;
+    this.syncState({ hint: `Command locked: ${command} — find the shrine that teaches it.` });
     return false;
   }
 
@@ -533,21 +724,15 @@ export class WorldScene extends Phaser.Scene {
   private showToast(text: string) {
     const toast = this.add
       .text(this.player.x, this.player.y - 42, text, {
-        fontFamily: 'Courier New',
-        fontSize: '14px',
-        color: '#f1fa8c',
-        backgroundColor: '#10211e',
+        fontFamily: 'Courier New', fontSize: '14px',
+        color: '#f1fa8c', backgroundColor: '#10211e',
         padding: { x: 8, y: 4 },
       })
-      .setOrigin(0.5)
-      .setDepth(20);
+      .setOrigin(0.5).setDepth(20);
 
     this.tweens.add({
-      targets: toast,
-      y: toast.y - 24,
-      alpha: 0,
-      duration: 1400,
-      ease: 'Sine.easeOut',
+      targets: toast, y: toast.y - 24, alpha: 0,
+      duration: 1400, ease: 'Sine.easeOut',
       onComplete: () => toast.destroy(),
     });
   }

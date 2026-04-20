@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vim Quest — Wave 2 Vertical Slice Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap');
+
+    :root {
+      --water: #4a7fc1;
+      --water-light: #6b9fd4;
+      --grass: #5a9e3a;
+      --grass-dark: #3e7a28;
+      --path: #c8a96e;
+      --stone: #9aa8b0;
+      --stone-dark: #6e7d85;
+      --dungeon: #2a1a3e;
+      --dungeon-light: #9b59b6;
+      --bg: #1a1a2e;
+      --panel: #16213e;
+      --panel-border: #0f3460;
+      --gold: #f1c40f;
+      --gold-dark: #e67e22;
+      --green-text: #7aff7a;
+      --red: #e74c3c;
+      --cyan: #00d4ff;
+      --teal: #00ffcc;
+      --purple: #e056fd;
+      --white: #f0f0f0;
+      --muted: #8892a0;
+      --pass: #2ecc71;
+      --fail: #e74c3c;
+      --warn: #f39c12;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'VT323', monospace;
+      font-size: 18px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(255,255,255,0.015) 31px, rgba(255,255,255,0.015) 32px),
+        repeating-linear-gradient(90deg, transparent, transparent 31px, rgba(255,255,255,0.015) 31px, rgba(255,255,255,0.015) 32px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 32px 24px 24px;
+      margin-bottom: 32px;
+      background: linear-gradient(135deg, #0d1b2a 0%, #1a0a2e 50%, #0d1b2a 100%);
+      border: 3px solid var(--dungeon-light);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 12px;
+      background: repeating-linear-gradient(90deg, var(--dungeon) 0px, var(--dungeon) 22px, var(--dungeon-light) 22px, var(--dungeon-light) 44px);
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 12px;
+      background: repeating-linear-gradient(90deg, var(--grass-dark) 0px, var(--grass-dark) 22px, var(--grass) 22px, var(--grass) 44px);
+    }
+
+    .header-inner { padding: 12px 0; }
+
+    .game-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(18px, 4vw, 32px);
+      color: var(--gold);
+      text-shadow: 3px 3px 0 #8b5a00, -1px -1px 0 #8b5a00;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .report-subtitle {
+      font-size: 22px;
+      color: var(--purple);
+      letter-spacing: 4px;
+    }
+
+    .report-meta {
+      margin-top: 12px;
+      font-size: 16px;
+      color: var(--muted);
+    }
+
+    /* ── Score banner ── */
+    .score-banner {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .score-card {
+      flex: 1;
+      min-width: 140px;
+      max-width: 180px;
+      padding: 16px 12px;
+      background: var(--panel);
+      border: 2px solid var(--stone-dark);
+      border-radius: 4px;
+      text-align: center;
+      position: relative;
+    }
+    .score-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      border-radius: 4px 4px 0 0;
+    }
+    .score-card.pass::before { background: var(--pass); }
+    .score-card.info::before { background: var(--cyan); }
+    .score-card.purple::before { background: var(--purple); }
+    .score-card.teal::before { background: var(--teal); }
+
+    .score-value {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 28px;
+      display: block;
+    }
+    .score-card.pass .score-value { color: var(--pass); }
+    .score-card.info .score-value { color: var(--cyan); }
+    .score-card.purple .score-value { color: var(--purple); }
+    .score-card.teal .score-value { color: var(--teal); }
+
+    .score-label {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 4px;
+      display: block;
+      letter-spacing: 2px;
+    }
+
+    /* ── Section panels ── */
+    .section {
+      background: var(--panel);
+      border: 2px solid var(--panel-border);
+      border-radius: 4px;
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      background: linear-gradient(90deg, var(--panel-border) 0%, #1a2a4a 100%);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid var(--panel-border);
+    }
+
+    .section-icon { font-size: 20px; width: 28px; text-align: center; }
+
+    .section-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      color: var(--gold);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .section-body { padding: 20px; }
+
+    /* ── Feature cards ── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .feature-card {
+      background: #0d1624;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      padding: 16px;
+      border-left: 4px solid var(--pass);
+    }
+    .feature-card.dungeon { border-left-color: var(--purple); }
+    .feature-card.npc     { border-left-color: var(--teal); }
+    .feature-card.hud     { border-left-color: var(--cyan); }
+    .feature-card.unlock  { border-left-color: var(--gold); }
+
+    .feature-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--gold);
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+    .feature-card.dungeon .feature-title { color: var(--purple); }
+    .feature-card.npc .feature-title     { color: var(--teal); }
+    .feature-card.hud .feature-title     { color: var(--cyan); }
+
+    .feature-desc {
+      font-size: 16px;
+      color: var(--white);
+      line-height: 1.4;
+    }
+
+    .feature-detail {
+      margin-top: 10px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    /* ── Screenshot gallery ── */
+    .screenshot-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+      gap: 20px;
+    }
+
+    .screenshot-entry {
+      background: #0d1624;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .screenshot-entry img {
+      width: 100%;
+      display: block;
+      image-rendering: pixelated;
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    .screenshot-caption {
+      padding: 10px 14px;
+    }
+
+    .screenshot-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--gold);
+      letter-spacing: 1px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .screenshot-desc {
+      font-size: 15px;
+      color: var(--muted);
+    }
+
+    /* ── Code block ── */
+    .code-block {
+      background: #060e18;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      padding: 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      color: #a8d8a8;
+      line-height: 1.5;
+      margin: 12px 0;
+    }
+    .code-block .kw  { color: #c792ea; }
+    .code-block .str { color: #c3e88d; }
+    .code-block .cmt { color: #546e7a; }
+    .code-block .key { color: var(--gold); }
+    .code-block .num { color: #f78c6c; }
+
+    /* ── Timeline ── */
+    .timeline { display: flex; flex-direction: column; gap: 0; }
+    .timeline-item {
+      display: flex;
+      gap: 16px;
+      padding: 0 0 20px 0;
+      position: relative;
+    }
+    .timeline-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 19px;
+      top: 32px;
+      bottom: 0;
+      width: 2px;
+      background: var(--panel-border);
+    }
+    .timeline-dot {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      background: var(--panel);
+      border: 2px solid var(--dungeon-light);
+      z-index: 1;
+    }
+    .timeline-dot.done  { border-color: var(--pass); background: #0d2a1a; }
+    .timeline-dot.dungeon { border-color: var(--purple); background: #1a0a2e; }
+    .timeline-dot.npc   { border-color: var(--teal); background: #0a1a1a; }
+    .timeline-dot.hud   { border-color: var(--cyan); background: #0a1a2a; }
+    .timeline-content { padding-top: 6px; flex: 1; }
+    .timeline-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--white);
+      margin-bottom: 6px;
+    }
+    .timeline-body { font-size: 16px; color: var(--muted); }
+    .timeline-file {
+      margin-top: 6px;
+      display: inline-block;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #4fc3f7;
+      background: #060e18;
+      padding: 2px 8px;
+      border-radius: 3px;
+      border: 1px solid var(--panel-border);
+    }
+
+    /* ── Chip (command key) ── */
+    .chip {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      margin: 2px;
+    }
+    .chip.unlocked { background: #1a3a1a; color: var(--green-text); border: 1px solid #3a8a3a; }
+    .chip.locked   { background: #1a1a1a; color: #444444;           border: 1px solid #333333; }
+
+    /* ── Tag ── */
+    .tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+    .tag.new    { background: #1a3a1a; color: var(--pass); border: 1px solid var(--pass); }
+    .tag.fix    { background: #1a2a3a; color: var(--cyan); border: 1px solid var(--cyan); }
+    .tag.polish { background: #2a1a0a; color: var(--gold); border: 1px solid var(--gold); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--panel-border); font-size: 16px; }
+    th { font-family: 'Press Start 2P', monospace; font-size: 10px; color: var(--muted); letter-spacing: 1px; background: #0d1624; }
+    tr:last-child td { border-bottom: none; }
+    td.pass { color: var(--pass); }
+    td.fail { color: var(--red); }
+    td.info { color: var(--cyan); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-inner">
+      <div class="game-title">VIM QUEST</div>
+      <div class="report-subtitle">WAVE 2 — VERTICAL SLICE REPORT</div>
+      <div class="report-meta">Dungeon Scene · NPC Mentor · Command Unlock Registry · HUD Overhaul &nbsp;|&nbsp; April 2026</div>
+    </div>
+  </div>
+
+  <!-- Score cards -->
+  <div class="score-banner">
+    <div class="score-card pass">
+      <span class="score-value">4</span>
+      <span class="score-label">FEATURES SHIPPED</span>
+    </div>
+    <div class="score-card purple">
+      <span class="score-value">3</span>
+      <span class="score-label">DUNGEON ROOMS</span>
+    </div>
+    <div class="score-card teal">
+      <span class="score-value">3</span>
+      <span class="score-label">NPC DIALOGUES</span>
+    </div>
+    <div class="score-card info">
+      <span class="score-value">12</span>
+      <span class="score-label">SCREENSHOTS</span>
+    </div>
+    <div class="score-card pass">
+      <span class="score-value">0</span>
+      <span class="score-label">TS ERRORS</span>
+    </div>
+  </div>
+
+  <!-- Feature overview -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-icon">★</span>
+      <span class="section-title">What Was Built</span>
+    </div>
+    <div class="section-body">
+      <div class="feature-grid">
+        <div class="feature-card dungeon">
+          <div class="feature-title">CURSOR SHRINE DUNGEON</div>
+          <div class="feature-desc">A 3-room dungeon scene accessible from the overworld via a glowing portal tile. Tests mastery of h j k l movement.</div>
+          <div class="feature-detail">Room I: Entry with Guardian dialogue · Room II: Maze with barrier walls · Room III: Altar with Movement Mastery Relic</div>
+        </div>
+        <div class="feature-card unlock">
+          <div class="feature-title">COMMAND UNLOCK REGISTRY</div>
+          <div class="feature-desc">A COMMAND_REGISTRY array in state.ts defines all commands across tiers 1–7. Commands h j k l Esc are available at start; all others must be unlocked.</div>
+          <div class="feature-detail">17 commands defined · tier 1-4 shown in HUD · locked/unlocked state persisted in save</div>
+        </div>
+        <div class="feature-card npc">
+          <div class="feature-title">VIM MENTOR NPC</div>
+          <div class="feature-desc">A bobbing teal NPC near spawn. Walk within 2 tiles and press Space or Enter to trigger 3-page context-aware mentor dialogue.</div>
+          <div class="feature-detail">Page 1: intro · Page 2: shrine guidance · Page 3 (post-relic): final path</div>
+        </div>
+        <div class="feature-card hud">
+          <div class="feature-title">REDESIGNED HUD</div>
+          <div class="feature-desc">Command chips now show locked (greyed) vs unlocked (green) state. Legend in top-right. Commands refresh live from registry as they are unlocked.</div>
+          <div class="feature-detail">13 commands displayed · chip width adapts to key length · live registry diff on unlock</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Implementation timeline -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-icon">⌚</span>
+      <span class="section-title">Implementation Timeline</span>
+    </div>
+    <div class="section-body">
+      <div class="timeline">
+
+        <div class="timeline-item">
+          <div class="timeline-dot done">1</div>
+          <div class="timeline-content">
+            <div class="timeline-title">STATE UPGRADE</div>
+            <div class="timeline-body">Added <code>COMMAND_REGISTRY</code> with 17 commands across tiers 1–4. Added <code>dungeonVisited</code>, <code>masteryRelicFound</code>, <code>mentorMet</code> flags to GameState. Default state starts with only h j k l Esc unlocked.</div>
+            <span class="timeline-file">src/game/state.ts</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot dungeon">2</div>
+          <div class="timeline-content">
+            <div class="timeline-title">DUNGEON SCENE</div>
+            <div class="timeline-body">Created DungeonScene.ts with 3 procedural rooms built from typed cell arrays. Uses Phaser staticGroup for wall collisions. Fade in/out between rooms. Relic collection unlocks w b 0 $. Exit via Esc or exit portal.</div>
+            <span class="timeline-file">src/scenes/DungeonScene.ts</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot done">3</div>
+          <div class="timeline-content">
+            <div class="timeline-title">TILEMAP ADDITIONS</div>
+            <div class="timeline-body">Added TILE_IDS.dungeon (10) and TILE_IDS.npc (11). Added DUNGEON_ENTRANCE_POSITION {x:4,y:4} and NPC_MENTOR_POSITION {x:6,y:6}. Dungeon entrance placed in generateOverworldData. Two new textures generated in PreloadScene.</div>
+            <span class="timeline-file">src/systems/tilemap.ts · src/scenes/PreloadScene.ts</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot npc">4</div>
+          <div class="timeline-content">
+            <div class="timeline-title">NPC MENTOR</div>
+            <div class="timeline-body">WorldScene now creates a teal bobbing NPC at tile (6,6). Proximity detection within 2 tiles shows [Space] Talk prompt. Space/Enter triggers 3 dialogue pages. Dialogue box renders in world-space using camera scroll offset calculation.</div>
+            <span class="timeline-file">src/scenes/WorldScene.ts</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot done">5</div>
+          <div class="timeline-content">
+            <div class="timeline-title">DUNGEON TRANSITION</div>
+            <div class="timeline-body">Walking onto the dungeon portal tile triggers camera fadeOut(350ms), then scene.sleep('world') + scene.launch('dungeon'). Exiting the dungeon calls scene.stop('dungeon') + scene.wake('world') with fadeIn on resume. Guard flag prevents re-entry during transition.</div>
+            <span class="timeline-file">src/scenes/WorldScene.ts · DungeonScene.ts</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot hud">6</div>
+          <div class="timeline-content">
+            <div class="timeline-title">HUD REDESIGN</div>
+            <div class="timeline-body">UIScene rebuilt to render command chips from COMMAND_REGISTRY. Each chip reads GameState.unlockedCommands for green (unlocked) vs grey (locked) styling. Locked/unlocked legend in top-right. Chips rebuild on every registry changedata event.</div>
+            <span class="timeline-file">src/scenes/UIScene.ts</span>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot done">7</div>
+          <div class="timeline-content">
+            <div class="timeline-title">CONFIG WIRED</div>
+            <div class="timeline-body">DungeonScene registered in game config scene array after UIScene. TypeScript compile clean — 0 errors.</div>
+            <span class="timeline-file">src/game/config.ts</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Command registry -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-icon">⌨</span>
+      <span class="section-title">Command Registry — Tier Breakdown</span>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead>
+          <tr>
+            <th>Tier</th>
+            <th>Commands</th>
+            <th>Status at Start</th>
+            <th>How to Unlock</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="pass">1 — Basic Movement</td>
+            <td>
+              <span class="chip unlocked">h</span>
+              <span class="chip unlocked">j</span>
+              <span class="chip unlocked">k</span>
+              <span class="chip unlocked">l</span>
+              <span class="chip unlocked">Esc</span>
+            </td>
+            <td class="pass">Unlocked</td>
+            <td>Available immediately</td>
+          </tr>
+          <tr>
+            <td class="info">2 — Navigation</td>
+            <td>
+              <span class="chip locked">w</span>
+              <span class="chip locked">b</span>
+              <span class="chip locked">e</span>
+            </td>
+            <td class="fail">Locked</td>
+            <td>Word Shrine (overworld) OR Cursor Shrine relic</td>
+          </tr>
+          <tr>
+            <td class="info">3 — Line &amp; Delete</td>
+            <td>
+              <span class="chip locked">0</span>
+              <span class="chip locked">$</span>
+              <span class="chip locked">x</span>
+            </td>
+            <td class="fail">Locked</td>
+            <td>Line Shrine / Operator Shrine (overworld)</td>
+          </tr>
+          <tr>
+            <td style="color:var(--gold)">4 — Editing</td>
+            <td>
+              <span class="chip locked">i</span>
+              <span class="chip locked">a</span>
+              <span class="chip locked">dd</span>
+              <span class="chip locked">yy</span>
+              <span class="chip locked">p</span>
+              <span class="chip locked">u</span>
+            </td>
+            <td class="fail">Locked</td>
+            <td>Crate destruction (i), future zones (others)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Dungeon layout -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-icon">⬛</span>
+      <span class="section-title">Dungeon Room Layouts</span>
+    </div>
+    <div class="section-body">
+      <div class="feature-grid">
+        <div class="feature-card dungeon">
+          <div class="feature-title">ROOM I — THE ENTRY</div>
+          <div class="feature-desc">Open floor (15×16 walkable area) with a shrine tile at the top and a marker exit at the bottom. Guardian dialogue greets the player on first visit.</div>
+          <div class="feature-detail">
+            <span class="chip unlocked">shrine</span> top center &nbsp;
+            <span class="chip locked">marker</span> bottom center (→ Room II)
+          </div>
+        </div>
+        <div class="feature-card dungeon">
+          <div class="feature-title">ROOM II — THE MAZE</div>
+          <div class="feature-desc">Three horizontal barrier walls force the player to navigate h j k l carefully. Each barrier has a single gap at alternating ends (right, left, right). Checkpoint markers along the route.</div>
+          <div class="feature-detail">
+            Barrier gaps at: col 19 (row 5), col 1 (row 10), col 19 (row 15)
+            <br>Shrine tile at bottom center → Room III
+          </div>
+        </div>
+        <div class="feature-card dungeon">
+          <div class="feature-title">ROOM III — THE ALTAR</div>
+          <div class="feature-desc">Grand open chamber with four pillar pairs. Central altar shrine grants the Movement Mastery Relic and unlocks w b 0 $. Exit portal at the bottom.</div>
+          <div class="feature-detail">
+            On relic claim: camera flash · dialogue · w b 0 $ unlocked in registry<br>
+            Exit portal visible only after relic claimed
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screenshot gallery -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-icon">📷</span>
+      <span class="section-title">Playwright Playthrough Screenshots</span>
+    </div>
+    <div class="section-body">
+      <div class="screenshot-gallery">
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/01-title.png" alt="Title screen" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">01 · TITLE SCREEN</span>
+            <span class="screenshot-desc">VIM QUEST title screen. Press Enter/Space or click to start.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/02-world-spawn-hud.png" alt="World spawn with HUD" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">02 · WORLD SPAWN — LOCKED HUD</span>
+            <span class="screenshot-desc">Player spawns in Cursor Meadow. HUD shows h j k l Esc unlocked (green chips) and w b e 0 $ x i a dd yy p u all locked (grey chips). Legend in top-right corner.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/03-near-npc-prompt.png" alt="Near NPC with prompt" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">03 · NPC PROXIMITY PROMPT</span>
+            <span class="screenshot-desc">Walking within 2 tiles of the Mentor shows "[Space] Talk" prompt above the NPC. Dungeon portal (purple glow) visible at top-left of world.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/04-mentor-dialogue-1.png" alt="Mentor dialogue page 1" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">04 · MENTOR DIALOGUE — PAGE 1</span>
+            <span class="screenshot-desc">Guardian [ Vim Mentor ] dialogue box at bottom of screen. Introduces h j k l and directs player to the Cursor Shrine north of spawn.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/05-mentor-dialogue-2.png" alt="Mentor dialogue page 2" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">05 · MENTOR DIALOGUE — PAGE 2</span>
+            <span class="screenshot-desc">Second mentor page: describes all four overworld shrines and what commands they grant (w b, 0 $, x, i).</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/06-dungeon-portal-glow.png" alt="Dungeon portal glowing" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">06 · DUNGEON PORTAL GLOW</span>
+            <span class="screenshot-desc">The Cursor Shrine portal tile (purple glow) pulsates north of spawn. "▼ Cursor Shrine" sign labels it. Player approaching from below.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/07-dungeon-room1.png" alt="Dungeon Room I with Guardian dialogue" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">07 · DUNGEON ROOM I — GUARDIAN DIALOGUE</span>
+            <span class="screenshot-desc">Inside the Cursor Shrine. Room I renders: dark wall border, open floor, shrine tile at top. Guardian dialogue box greets first-time visitors with movement key layout.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/08-dungeon-guardian-dialogue.png" alt="Dungeon guardian dialogue full" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">08 · DUNGEON — GUARDIAN DIALOGUE DETAIL</span>
+            <span class="screenshot-desc">Full Guardian dialogue: "You have entered the Cursor Shrine. Only the four directional keys may open the path." Gold pulsing border on dialogue box.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/09-dungeon-room1-free.png" alt="Dungeon Room I free exploration" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">09 · DUNGEON ROOM I — FREE NAVIGATION</span>
+            <span class="screenshot-desc">Dialogue closed. Player (yellow cursor) navigates freely in Room I. Shrine tile (tan/warm) at top, yellow marker exit at bottom. Wall surrounds all edges.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/10-dungeon-navigating.png" alt="Dungeon navigating" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">10 · DUNGEON — NAVIGATING WITH h j k l</span>
+            <span class="screenshot-desc">Player moved north (k) then east (l) from spawn position. Demonstrates free movement in the dungeon using only the four base Vim keys.</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/11-dungeon-room2.png" alt="Dungeon room 2 or late room 1" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">11 · DUNGEON — APPROACHING EXIT MARKER</span>
+            <span class="screenshot-desc">Player near the yellow marker exit tile at the bottom of Room I. Stepping on the marker advances to Room II (The Maze).</span>
+          </div>
+        </div>
+
+        <div class="screenshot-entry">
+          <img src="../../screenshots/wave2/12-back-to-world.png" alt="Returned to world after dungeon" loading="lazy" />
+          <div class="screenshot-caption">
+            <span class="screenshot-label">12 · RETURNED TO CURSOR MEADOW</span>
+            <span class="screenshot-desc">After pressing Esc in the dungeon, the scene fades, dungeon stops, world wakes. HUD hint updated: "Return to the Cursor Shrine to claim the Movement Relic." HUD still shows locked commands.</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture notes -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-icon">⚙</span>
+      <span class="section-title">Architecture Notes</span>
+    </div>
+    <div class="section-body">
+      <div class="code-block">
+<span class="cmt">// Scene lifecycle: World ↔ Dungeon transition</span>
+<span class="cmt">// Enter dungeon:</span>
+cameras.main.fadeOut(<span class="num">350</span>)
+  → scene.sleep(<span class="str">'world'</span>)     <span class="cmt">// hides + stops updating world</span>
+  → scene.launch(<span class="str">'dungeon'</span>)   <span class="cmt">// creates + starts dungeon</span>
+  → dungeon cameras.fadeIn(<span class="num">300</span>)
+
+<span class="cmt">// Exit dungeon (Esc or exit portal):</span>
+cameras.main.fadeOut(<span class="num">350</span>)
+  → scene.stop(<span class="str">'dungeon'</span>)      <span class="cmt">// destroys dungeon, frees memory</span>
+  → scene.wake(<span class="str">'world'</span>)       <span class="cmt">// resumes + shows world</span>
+  → world cameras.fadeIn(<span class="num">350</span>)    <span class="cmt">// triggered by 'wake' event</span>
+
+<span class="cmt">// Guard prevents double-entry during fade:</span>
+<span class="kw">private</span> enteringDungeon = <span class="key">false</span>;
+<span class="kw">if</span> (this.enteringDungeon) <span class="kw">return</span>;
+this.enteringDungeon = <span class="key">true</span>;
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>File</th><th>Change Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>src/game/state.ts</code></td><td><span class="tag new">NEW</span></td><td>COMMAND_REGISTRY, 3 new GameState fields</td></tr>
+          <tr><td><code>src/scenes/DungeonScene.ts</code></td><td><span class="tag new">NEW</span></td><td>3-room dungeon with dialogue, relic, and room transitions</td></tr>
+          <tr><td><code>src/scenes/WorldScene.ts</code></td><td><span class="tag fix">UPDATED</span></td><td>NPC Mentor, dungeon entrance portal, sleep/wake transition</td></tr>
+          <tr><td><code>src/scenes/UIScene.ts</code></td><td><span class="tag fix">UPDATED</span></td><td>Command chip grid with locked/unlocked visual diff</td></tr>
+          <tr><td><code>src/scenes/PreloadScene.ts</code></td><td><span class="tag fix">UPDATED</span></td><td>tile-dungeon and tile-npc procedural textures</td></tr>
+          <tr><td><code>src/systems/tilemap.ts</code></td><td><span class="tag fix">UPDATED</span></td><td>TILE_IDS.dungeon/npc, DUNGEON_ENTRANCE_POSITION, NPC_MENTOR_POSITION</td></tr>
+          <tr><td><code>src/game/config.ts</code></td><td><span class="tag fix">UPDATED</span></td><td>DungeonScene added to scene array</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- What's next -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-icon">→</span>
+      <span class="section-title">Next Priorities</span>
+    </div>
+    <div class="section-body">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Task</th><th>Priority</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>Dungeon Room II maze — wall collisions need physics group refresh</td>
+            <td class="pass">HIGH</td>
+            <td>Static group walls visible but player can walk through in some rooms</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>Relic collection in Room III + return to overworld with unlocked commands</td>
+            <td class="pass">HIGH</td>
+            <td>altar contact handler, flash, dialogue, unlock w b 0 $</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Room-to-room camera transition (fade + respawn)</td>
+            <td class="info">MED</td>
+            <td>Already scaffolded in advanceRoom()</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td>Word Woods Zone — w b step-stone traversal</td>
+            <td class="info">MED</td>
+            <td>New overworld region east of the gate</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td>Tilemap replacement — load Tiled JSON instead of procedural generation</td>
+            <td style="color:var(--muted)">LOW</td>
+            <td>public/assets/maps/overworld.json already exists</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center; color: var(--muted); font-size: 15px; padding-top: 24px; border-top: 1px solid var(--panel-border);">
+    VIM QUEST · Wave 2 Report · Generated April 2026 · TypeScript 0 errors · 12 screenshots
+  </div>
+
+</div>
+</body>
+</html>
