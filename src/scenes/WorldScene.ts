@@ -75,6 +75,7 @@ export class WorldScene extends Phaser.Scene {
   private mentorVisitCount = 0;
   private dialogueBox?: Phaser.GameObjects.Container;
   private dialogueActive = false;
+  private introOverlayActive = false;
 
   // Dungeon entrance glow + transition guard
   private dungeonGlow!: Phaser.GameObjects.Rectangle;
@@ -114,6 +115,10 @@ export class WorldScene extends Phaser.Scene {
         : 'Speak to the Mentor near spawn. Walk close and press Space or Enter.',
     });
     this.restoreFromState();
+
+    if (!state.introSeen) {
+      this.showIntroOverlay();
+    }
   }
 
   update() {
@@ -316,6 +321,7 @@ export class WorldScene extends Phaser.Scene {
 
   private showDialogue(speaker: string, lines: string[]) {
     this.dialogueActive = true;
+    this.introOverlayActive = false;
     if (this.dialogueBox) this.dialogueBox.destroy();
 
     const boxW = 700;
@@ -358,10 +364,31 @@ export class WorldScene extends Phaser.Scene {
 
   private closeDialogue() {
     this.dialogueActive = false;
+    this.introOverlayActive = false;
     if (this.dialogueBox) {
       this.dialogueBox.destroy();
       this.dialogueBox = undefined;
     }
+  }
+
+  private showIntroOverlay() {
+    this.syncState({
+      introSeen: true,
+      hint: 'Move with h j k l, then speak to the Mentor near spawn.',
+    });
+
+    this.introOverlayActive = true;
+    this.showDialogue('Cursor Primer', [
+      'You are the cursor.',
+      '',
+      'Move with the four cardinal keys:',
+      '  h ← left     l → right',
+      '  j ↓ down      k ↑ up',
+      '',
+      'Walk the meadow. Then speak to the Mentor nearby.',
+      '',
+      '[Press any key to begin]',
+    ]);
   }
 
   // ─── Input ────────────────────────────────────────────────────────────────
@@ -385,6 +412,11 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-X', () => this.handleBreakCrate());
     this.input.keyboard?.on('keydown-I', () => this.handleInsertAction());
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (this.introOverlayActive) {
+        event.preventDefault();
+        this.closeDialogue();
+        return;
+      }
       if (event.key === 'i' || event.key === 'I') {
         this.handleInsertAction();
       }
@@ -393,6 +425,10 @@ export class WorldScene extends Phaser.Scene {
       }
     });
     this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.introOverlayActive) {
+        this.closeDialogue();
+        return;
+      }
       if (this.dialogueActive) {
         this.closeDialogue();
       } else {
@@ -400,6 +436,10 @@ export class WorldScene extends Phaser.Scene {
       }
     });
     this.input.keyboard?.on('keydown-SPACE', () => {
+      if (this.introOverlayActive) {
+        this.closeDialogue();
+        return;
+      }
       if (this.dialogueActive) {
         this.closeDialogue();
         return;
@@ -413,6 +453,10 @@ export class WorldScene extends Phaser.Scene {
       }
     });
     this.input.keyboard?.on('keydown-ENTER', () => {
+      if (this.introOverlayActive) {
+        this.closeDialogue();
+        return;
+      }
       if (this.dialogueActive) {
         this.closeDialogue();
         return;

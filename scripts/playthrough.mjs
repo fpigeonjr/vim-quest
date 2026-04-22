@@ -128,6 +128,8 @@ await shot(page, '01-title', 'Title screen');
 // Start game
 await tap(page, 'Enter');
 await page.waitForTimeout(3000);
+await tap(page, 'Space');
+await page.waitForTimeout(600);
 await shot(page, '02-game-start', 'Game start — player (4,6), commands: h j k l Esc');
 
 // ── 1. Word Shrine (14,6) ─────────────────────────────────────────────────────

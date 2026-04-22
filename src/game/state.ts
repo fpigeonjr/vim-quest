@@ -12,6 +12,7 @@ export type GameState = {
   dungeonVisited: boolean;
   masteryRelicFound: boolean;
   mentorMet: boolean;
+  introSeen: boolean;
 };
 
 export const defaultGameState = (): GameState => ({
@@ -27,6 +28,7 @@ export const defaultGameState = (): GameState => ({
   dungeonVisited: false,
   masteryRelicFound: false,
   mentorMet: false,
+  introSeen: false,
 });
 
 // Full command registry — defines every command's display label and unlock tier
