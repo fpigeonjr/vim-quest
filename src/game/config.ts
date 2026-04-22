@@ -15,7 +15,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: 'app',
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
-  backgroundColor: '#081312',
+  backgroundColor: '#4f6eda',
   pixelArt: true,
   physics: {
     default: 'arcade',

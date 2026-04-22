@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vim Quest – Cave Playthrough Findings</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3efe6;
+        --panel: #ffffff;
+        --ink: #2a241e;
+        --muted: #6e6255;
+        --rule: rgba(42, 36, 30, 0.14);
+        --accent: #4f6eda;
+        --accent-2: #d4b66d;
+        --code: rgba(79, 110, 218, 0.12);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        background:
+          radial-gradient(circle at 20% -10%, rgba(79, 110, 218, 0.16), transparent 40%),
+          radial-gradient(circle at 80% 0%, rgba(212, 182, 109, 0.18), transparent 45%),
+          linear-gradient(180deg, var(--bg), #efe9dc);
+        color: var(--ink);
+      }
+      header {
+        padding: 28px 18px 16px;
+        border-bottom: 1px solid var(--rule);
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(6px);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: 0.2px;
+      }
+      header p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        max-width: 72ch;
+        line-height: 1.45;
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+      section {
+        background: var(--panel);
+        border: 1px solid var(--rule);
+        border-radius: 14px;
+        padding: 16px;
+        margin: 14px 0;
+        box-shadow: 0 18px 50px rgba(16, 24, 68, 0.08);
+      }
+      h2 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        letter-spacing: 0.1px;
+      }
+      ul { margin: 10px 0 0; padding-left: 18px; }
+      li { margin: 6px 0; line-height: 1.45; }
+      code {
+        background: var(--code);
+        padding: 2px 6px;
+        border-radius: 7px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: 0.92em;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+      figure {
+        margin: 0;
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #faf8f2;
+      }
+      figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      figcaption {
+        padding: 10px 10px 12px;
+        font-size: 12px;
+        color: var(--muted);
+        border-top: 1px solid var(--rule);
+      }
+      .badge {
+        display: inline-block;
+        font-weight: 700;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(79, 110, 218, 0.12);
+        color: #2b3c96;
+        border: 1px solid rgba(79, 110, 218, 0.25);
+      }
+      .badge.ok {
+        background: rgba(71, 151, 94, 0.12);
+        border-color: rgba(71, 151, 94, 0.24);
+        color: #1f5532;
+      }
+      .badge.warn {
+        background: rgba(212, 182, 109, 0.18);
+        border-color: rgba(212, 182, 109, 0.35);
+        color: #6a4c19;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .row p {
+        margin: 0;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <h1>Vim Quest – Cave (Dungeon) Playthrough Findings</h1>
+        <span class="badge ok">Playwright Pass</span>
+      </div>
+      <p>
+        This report summarizes an automated cave run driven by Playwright + <code>window.__game</code>.
+        Screenshots were captured during each major transition to verify the cave flow works end-to-end.
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>What Was Verified</h2>
+        <ul>
+          <li>Entering the cave from the overworld transitions into the dungeon scene.</li>
+          <li>Room I marker advances to Room II.</li>
+          <li>Room II altar advances to Room III.</li>
+          <li>Room III altar grants the relic and does not auto-exit.</li>
+          <li>Stepping on the exit portal returns to an awake overworld (and avoids immediate re-entry).</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Key Finding</h2>
+        <div class="row">
+          <span class="badge warn">Gotcha</span>
+          <p>Dungeon dialogues pause <code>update()</code>, so tile triggers won’t fire until the dialogue is closed.</p>
+        </div>
+        <ul>
+          <li>This matters most on first dungeon entry and on Room III intro / relic dialogue.</li>
+          <li>Automation needs to close dialogue boxes (equivalent to pressing <code>Space</code>/<code>Enter</code>).</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Automation Notes</h2>
+        <ul>
+          <li>Script: <code>scripts/cave-playthrough.mjs</code></li>
+          <li>Run: <code>VQ_URL=http://127.0.0.1:8080/ node scripts/cave-playthrough.mjs</code></li>
+          <li>
+            The script uses deterministic teleports to key tiles (marker/altar/exit) to validate state transitions and
+            avoid flaky pathfinding. If you want “real movement” validation, add a second script that drives <code>h/j/k/l</code>
+            through the maze over time.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Screenshots</h2>
+        <div class="grid">
+          <figure>
+            <img src="cave-playthrough/01-title.png" alt="Title screen" />
+            <figcaption>01 – Title screen loaded</figcaption>
+          </figure>
+          <figure>
+            <img src="cave-playthrough/02-world.png" alt="Overworld" />
+            <figcaption>02 – Overworld active</figcaption>
+          </figure>
+          <figure>
+            <img src="cave-playthrough/03-dungeon-room1.png" alt="Dungeon room I" />
+            <figcaption>03 – Enter dungeon (Room I)</figcaption>
+          </figure>
+          <figure>
+            <img src="cave-playthrough/04-room1-marker.png" alt="Room I marker" />
+            <figcaption>04 – Room I marker trigger</figcaption>
+          </figure>
+          <figure>
+            <img src="cave-playthrough/05-room2-start.png" alt="Room II start" />
+            <figcaption>05 – Room II start</figcaption>
+          </figure>
+          <figure>
+            <img src="cave-playthrough/06-room2-altar.png" alt="Room II altar" />
+            <figcaption>06 – Room II altar (advance to Room III)</figcaption>
+          </figure>
+          <figure>
+            <img src="cave-playthrough/07-room3-start.png" alt="Room III start" />
+            <figcaption>07 – Room III start</figcaption>
+          </figure>
+          <figure>
+            <img src="cave-playthrough/08-room3-altar-relic.png" alt="Room III relic" />
+            <figcaption>08 – Room III altar (relic granted)</figcaption>
+          </figure>
+          <figure>
+            <img src="cave-playthrough/09-exited-to-world.png" alt="Back to overworld" />
+            <figcaption>09 – Exit portal returns to overworld</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section>
+        <h2>Applied Improvements</h2>
+        <ul>
+          <li>Room II now shows a concrete route hint after the first checkpoint: “Right gap, left gap, right gap.”</li>
+          <li>The current dungeon objective now has a subtle pulsing glow on the marker, altar, or exit tile.</li>
+          <li>Dev builds now expose a tiny debug helper on <code>window.__vqDebug</code> for tile-precise automation.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

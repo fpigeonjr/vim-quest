@@ -65,8 +65,8 @@ const ROOM_MAPS: number[][][] = [
     r[3][12] = 3;
     r[8][12]  = 3;
     r[13][12] = 3;
-    // Altar at bottom
-    r[17][12] = 2;
+    // Altar at top, reached after navigating the right-left-right gaps
+    r[2][12] = 2;
     return r;
   })(),
 
@@ -92,7 +92,7 @@ const ROOM_MAPS: number[][][] = [
 const ROOM_STARTS: { x: number; y: number }[] = [
   { x: 12, y: 16 }, // Room 0: enter from bottom
   { x: 12, y: 18 }, // Room 1: enter from bottom
-  { x: 12, y: 16 }, // Room 2: enter from bottom
+  { x: 12, y: 17 }, // Room 2: enter just below the exit portal
 ];
 
 export class DungeonScene extends Phaser.Scene {
@@ -106,13 +106,16 @@ export class DungeonScene extends Phaser.Scene {
   private relicCollected = false;
   private roomLabel!: Phaser.GameObjects.Text;
   private toastGroup: Phaser.GameObjects.Text[] = [];
+  private objectiveGlow?: Phaser.GameObjects.Rectangle;
+  private objectiveGlowTween?: Phaser.Tweens.Tween;
+  private mazeHintShown = false;
 
   constructor() {
     super('dungeon');
   }
 
   create() {
-    this.cameras.main.setBackgroundColor('#050d0c');
+    this.cameras.main.setBackgroundColor('#4f6eda');
     // Fade in from black when dungeon launches
     this.cameras.main.fadeIn(300, 0, 0, 0);
     this.currentRoom = 0;
@@ -122,14 +125,15 @@ export class DungeonScene extends Phaser.Scene {
 
     this.buildRoom(this.currentRoom);
     this.spawnPlayer(this.currentRoom);
+    this.refreshObjectiveGlow();
     this.createInput();
 
     this.roomLabel = this.add
       .text(GAME_WIDTH / 2, 18, this.roomTitle(this.currentRoom), {
-        fontFamily: 'Courier New',
+        fontFamily: 'Palatino Linotype',
         fontSize: '18px',
-        color: '#f1fa8c',
-        backgroundColor: '#050d0c',
+        color: '#fff7df',
+        backgroundColor: '#5d79d8',
         padding: { x: 12, y: 4 },
       })
       .setOrigin(0.5, 0)
@@ -174,6 +178,8 @@ export class DungeonScene extends Phaser.Scene {
     // Clear previous room tiles
     this.tileImages.forEach((img) => img.destroy());
     this.tileImages.clear();
+
+    this.clearObjectiveGlow();
 
     if (this.colliderGroup) this.colliderGroup.clear(true, true);
     this.colliderGroup = this.physics.add.staticGroup();
@@ -317,16 +323,20 @@ export class DungeonScene extends Phaser.Scene {
     if (this._altarTriggered) return;
     this._altarTriggered = true;
 
-    if (this.currentRoom === 2 || this.currentRoom === 0) {
+    if (this.currentRoom === 2) {
       if (!this.relicCollected) {
         this.collectRelic();
       } else {
         this.showToast('You have already claimed the Movement Relic.');
       }
-    } else if (this.currentRoom === 1) {
-      // Mid-maze shrine — encouragement
-      this.showToast('Keep going — the altar is ahead!');
+    } else if (this.currentRoom === 0) {
+      this.showToast('The true relic lies deeper in the shrine.');
       this.time.delayedCall(300, () => { this._altarTriggered = false; });
+    } else if (this.currentRoom === 1) {
+      this.showToast('The path opens deeper into the shrine...');
+      this.time.delayedCall(150, () => {
+        this.advanceRoom(2);
+      });
     }
   }
 
@@ -341,8 +351,14 @@ export class DungeonScene extends Phaser.Scene {
         this.advanceRoom(1);
       });
     } else if (this.currentRoom === 1) {
-      // Checkpoints in maze — flash feedback, not an exit
-      this.showToast('Checkpoint — keep navigating!');
+      // First checkpoint gives a concrete route hint for the maze.
+      if (!this.mazeHintShown) {
+        this.mazeHintShown = true;
+        this.syncState({ hint: 'Maze hint: right gap, left gap, right gap.' });
+        this.showToast('Maze hint: right gap, left gap, right gap.');
+      } else {
+        this.showToast('Checkpoint — keep navigating!');
+      }
       this.time.delayedCall(600, () => { this._markerTriggered = false; });
     } else if (this.currentRoom === 2) {
       // Exit portal at bottom of altar room — return to overworld
@@ -364,9 +380,13 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.buildRoom(room);
       this.spawnPlayer(room);
+      this.refreshObjectiveGlow();
       this.cameras.main.fadeIn(250, 0, 0, 0);
       this.roomLabel.setText(this.roomTitle(room));
       this.syncState({ hint: this.roomHint(room) });
+      if (room === 1) {
+        this.mazeHintShown = false;
+      }
 
       if (room === 2) {
         this.time.delayedCall(400, () => {
@@ -394,6 +414,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private collectRelic() {
     this.relicCollected = true;
+    this.refreshObjectiveGlow();
 
     // Flash effect
     this.cameras.main.flash(500, 255, 215, 0);
@@ -452,18 +473,18 @@ export class DungeonScene extends Phaser.Scene {
     const container = this.add.container(0, 0).setDepth(50).setScrollFactor(0);
 
     const bg = this.add.rectangle(
-      boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0x050d0c, 0.95,
-    ).setStrokeStyle(2, 0xf1c40f, 1);
+      boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0xf4efe2, 0.96,
+    ).setStrokeStyle(3, 0xd2c8b1, 1);
     container.add(bg);
 
     const speakerText = this.add.text(boxX + 16, boxY + 12, `[ ${speaker} ]`, {
-      fontFamily: 'Courier New', fontSize: '14px', color: '#f1c40f', fontStyle: 'bold',
+      fontFamily: 'Palatino Linotype', fontSize: '15px', color: '#705628', fontStyle: 'bold',
     });
     container.add(speakerText);
 
     const body = lines.join('\n');
     const bodyText = this.add.text(boxX + 16, boxY + 38, body, {
-      fontFamily: 'Courier New', fontSize: '14px', color: '#e9f5db',
+      fontFamily: 'Courier New', fontSize: '14px', color: '#4b4238',
       lineSpacing: 4, wordWrap: { width: boxW - 32 },
     });
     container.add(bodyText);
@@ -521,6 +542,55 @@ export class DungeonScene extends Phaser.Scene {
       targets: toast, y: toast.y - 30, alpha: 0,
       duration: 1600, ease: 'Sine.easeOut',
       onComplete: () => toast.destroy(),
+    });
+  }
+
+  private clearObjectiveGlow() {
+    if (this.objectiveGlowTween) {
+      this.objectiveGlowTween.stop();
+      this.objectiveGlowTween = undefined;
+    }
+    if (this.objectiveGlow) {
+      this.objectiveGlow.destroy();
+      this.objectiveGlow = undefined;
+    }
+  }
+
+  private objectiveForRoom(): { x: number; y: number } | null {
+    if (this.currentRoom === 0) {
+      return { x: 12, y: 17 };
+    }
+    if (this.currentRoom === 1) {
+      return { x: 12, y: 2 };
+    }
+    if (this.currentRoom === 2) {
+      return this.relicCollected ? { x: 12, y: 16 } : { x: 12, y: 3 };
+    }
+    return null;
+  }
+
+  private refreshObjectiveGlow() {
+    this.clearObjectiveGlow();
+    const target = this.objectiveForRoom();
+    if (!target) return;
+
+    const offsetX = (GAME_WIDTH - COLS * TILE_SIZE) / 2;
+    const offsetY = (GAME_HEIGHT - ROWS * TILE_SIZE) / 2 + 20;
+    const dx = offsetX + target.x * TILE_SIZE + TILE_SIZE / 2;
+    const dy = offsetY + target.y * TILE_SIZE + TILE_SIZE / 2;
+
+    this.objectiveGlow = this.add
+      .rectangle(dx, dy, TILE_SIZE + 12, TILE_SIZE + 12, 0xffffff, 0.12)
+      .setDepth(1);
+    this.objectiveGlowTween = this.tweens.add({
+      targets: this.objectiveGlow,
+      alpha: { from: 0.18, to: 0.45 },
+      scaleX: { from: 1, to: 1.08 },
+      scaleY: { from: 1, to: 1.08 },
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
     });
   }
 

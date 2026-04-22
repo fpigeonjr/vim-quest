@@ -79,6 +79,7 @@ export class WorldScene extends Phaser.Scene {
   // Dungeon entrance glow + transition guard
   private dungeonGlow!: Phaser.GameObjects.Rectangle;
   private enteringDungeon = false;
+  private dungeonEntranceLockedUntilExitTile = false;
 
   constructor() {
     super('world');
@@ -88,10 +89,12 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueActive = false;
     this.dialogueBox = undefined;
     this.enteringDungeon = false;
+    this.dungeonEntranceLockedUntilExitTile = false;
 
     // When this scene wakes after dungeon exit, reset transition guard
     this.events.on('wake', () => {
       this.enteringDungeon = false;
+      this.dungeonEntranceLockedUntilExitTile = true;
       // Fade back in
       this.cameras.main.fadeIn(350, 0, 0, 0);
     });
@@ -129,37 +132,43 @@ export class WorldScene extends Phaser.Scene {
     this.tilemapData = createOverworldTilemap(this);
 
     this.add.text(5 * TILE_SIZE, 4 * TILE_SIZE, 'Cursor Meadow', {
-      fontFamily: 'Courier New',
+      fontFamily: 'Palatino Linotype',
       fontSize: '24px',
-      color: '#f1fa8c',
+      color: '#fff7df',
+      stroke: '#5a6fc3',
+      strokeThickness: 5,
     });
 
-    const signStyle = (color = '#e2f0cb') => ({
+    const signStyle = (color = '#4f4538') => ({
       fontFamily: 'Courier New',
       fontSize: '13px',
       color,
-      backgroundColor: '#0d1f0f',
+      backgroundColor: '#f4efe2',
+      stroke: '#ffffff',
+      strokeThickness: 1,
       padding: { x: 6, y: 3 },
     });
 
     // Near spawn
-    this.add.text(5 * TILE_SIZE, 7 * TILE_SIZE, '► Word Shrine: w b  →', signStyle('#f1fa8c'));
+    this.add.text(5 * TILE_SIZE, 7 * TILE_SIZE, '► Word Shrine: w b  →', signStyle('#6d5c34'));
     // Dungeon entrance label
     this.add.text(
       DUNGEON_ENTRANCE_POSITION.x * TILE_SIZE - 10,
       (DUNGEON_ENTRANCE_POSITION.y - 1) * TILE_SIZE,
       '▼ Cursor Shrine',
-      signStyle('#c77dff'),
+      signStyle('#5c5ea3'),
     );
     // Path south
-    this.add.text(10 * TILE_SIZE, 12 * TILE_SIZE, '▼ Line Shrine: 0 $', signStyle('#8ecae6'));
-    this.add.text(10 * TILE_SIZE, 21 * TILE_SIZE, '► Operator Shrine: x  →', signStyle('#ffb3c1'));
-    this.add.text(42 * TILE_SIZE, 15 * TILE_SIZE, '► Break crates with x\n  (3 to unlock the gate)', signStyle('#f8f9fa'));
-    this.add.text(21 * TILE_SIZE, 8 * TILE_SIZE, '▼ River Console\n  Press i to build bridge', signStyle('#a8dadc'));
+    this.add.text(10 * TILE_SIZE, 12 * TILE_SIZE, '▼ Line Shrine: 0 $', signStyle('#52627c'));
+    this.add.text(10 * TILE_SIZE, 21 * TILE_SIZE, '► Operator Shrine: x  →', signStyle('#7f4f43'));
+    this.add.text(42 * TILE_SIZE, 15 * TILE_SIZE, '► Break crates with x\n  (3 to unlock the gate)', signStyle('#544637'));
+    this.add.text(21 * TILE_SIZE, 8 * TILE_SIZE, '▼ River Console\n  Press i to build bridge', signStyle('#46616c'));
     this.add.text(27 * TILE_SIZE, 3 * TILE_SIZE, '★ Level 1 Flag ★', {
-      fontFamily: 'Courier New',
+      fontFamily: 'Palatino Linotype',
       fontSize: '18px',
-      color: '#f1c40f',
+      color: '#fff1b2',
+      stroke: '#6f5933',
+      strokeThickness: 4,
     });
 
     const { width, height } = this.tilemapData;
@@ -194,8 +203,8 @@ export class WorldScene extends Phaser.Scene {
       .text(nx, ny - TILE_SIZE, 'MENTOR', {
         fontFamily: 'Courier New',
         fontSize: '11px',
-        color: '#00ffcc',
-        backgroundColor: '#051a1a',
+        color: '#634734',
+        backgroundColor: '#f5ecdb',
         padding: { x: 4, y: 2 },
       })
       .setOrigin(0.5, 1)
@@ -206,8 +215,8 @@ export class WorldScene extends Phaser.Scene {
       .text(nx, ny - TILE_SIZE * 1.6, '[Space] Talk', {
         fontFamily: 'Courier New',
         fontSize: '11px',
-        color: '#f1fa8c',
-        backgroundColor: '#1a1a0d',
+        color: '#5f513c',
+        backgroundColor: '#f5ecdb',
         padding: { x: 4, y: 2 },
       })
       .setOrigin(0.5, 1)
@@ -257,7 +266,7 @@ export class WorldScene extends Phaser.Scene {
 
     // Pulsing glow rectangle behind the entrance tile
     this.dungeonGlow = this.add
-      .rectangle(dx, dy, TILE_SIZE + 8, TILE_SIZE + 8, 0xe056fd, 0.35)
+      .rectangle(dx, dy, TILE_SIZE + 10, TILE_SIZE + 10, 0xc3cbff, 0.45)
       .setDepth(1);
 
     this.tweens.add({
@@ -275,9 +284,19 @@ export class WorldScene extends Phaser.Scene {
   private checkDungeonEntrance() {
     if (this.enteringDungeon) return;
     const tile = getTileAt(this.tilemapData, this.player.x, this.player.y);
-    if (
+    const onEntranceTile =
       tile.x === DUNGEON_ENTRANCE_POSITION.x &&
-      tile.y === DUNGEON_ENTRANCE_POSITION.y
+      tile.y === DUNGEON_ENTRANCE_POSITION.y;
+
+    if (this.dungeonEntranceLockedUntilExitTile) {
+      if (!onEntranceTile) {
+        this.dungeonEntranceLockedUntilExitTile = false;
+      }
+      return;
+    }
+
+    if (
+      onEntranceTile
     ) {
       this.enterDungeon();
     }
@@ -315,17 +334,17 @@ export class WorldScene extends Phaser.Scene {
     const container = this.add.container(0, 0).setDepth(50);
 
     const bg = this.add.rectangle(
-      boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0x050d0c, 0.96,
-    ).setStrokeStyle(2, 0x00ffcc, 1);
+      boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0xf4efe2, 0.97,
+    ).setStrokeStyle(3, 0xd2c8b1, 1);
     container.add(bg);
 
     const speakerText = this.add.text(boxX + 16, boxY + 12, `[ ${speaker} ]`, {
-      fontFamily: 'Courier New', fontSize: '14px', color: '#00ffcc', fontStyle: 'bold',
+      fontFamily: 'Palatino Linotype', fontSize: '15px', color: '#6b5338', fontStyle: 'bold',
     });
     container.add(speakerText);
 
     const bodyText = this.add.text(boxX + 16, boxY + 36, lines.join('\n'), {
-      fontFamily: 'Courier New', fontSize: '13px', color: '#e9f5db',
+      fontFamily: 'Courier New', fontSize: '13px', color: '#4b4238',
       lineSpacing: 3, wordWrap: { width: boxW - 32 },
     });
     container.add(bodyText);
@@ -515,24 +534,24 @@ export class WorldScene extends Phaser.Scene {
     const cx = this.cameras.main.scrollX + this.cameras.main.width / 2 / this.cameras.main.zoom;
     const cy = this.cameras.main.scrollY + this.cameras.main.height / 2 / this.cameras.main.zoom;
 
-    const overlay = this.add.rectangle(cx, cy, 520, 260, 0x061008, 0.92)
+    const overlay = this.add.rectangle(cx, cy, 520, 260, 0xf4efe2, 0.94)
       .setDepth(50)
-      .setStrokeStyle(3, 0xf1c40f, 1);
+      .setStrokeStyle(4, 0xd4b66d, 1);
 
     this.add.text(cx, cy - 80, '🏆 LEVEL 1 COMPLETE! 🏆', {
-      fontFamily: 'Courier New', fontSize: '26px', color: '#f1c40f', align: 'center',
+      fontFamily: 'Palatino Linotype', fontSize: '28px', color: '#705628', align: 'center', fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(51);
 
     this.add.text(cx, cy - 30, 'You mastered all cursor commands:', {
-      fontFamily: 'Courier New', fontSize: '16px', color: '#c8f7dc', align: 'center',
+      fontFamily: 'Courier New', fontSize: '16px', color: '#5d4f40', align: 'center',
     }).setOrigin(0.5).setDepth(51);
 
     this.add.text(cx, cy + 10, 'h  j  k  l  w  b  0  $  x  i', {
-      fontFamily: 'Courier New', fontSize: '20px', color: '#7aff7a', align: 'center',
+      fontFamily: 'Courier New', fontSize: '20px', color: '#7e5b2d', align: 'center',
     }).setOrigin(0.5).setDepth(51);
 
     this.add.text(cx, cy + 55, 'Press R to play again', {
-      fontFamily: 'Courier New', fontSize: '15px', color: '#8892a0', align: 'center',
+      fontFamily: 'Courier New', fontSize: '15px', color: '#8a7e6d', align: 'center',
     }).setOrigin(0.5).setDepth(51);
 
     this.tweens.add({
@@ -542,7 +561,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private spawnConfetti() {
-    const colors = [0xf1c40f, 0x2ecc71, 0xe74c3c, 0x00d4ff, 0xff6b6b, 0xf39c12, 0xa29bfe];
+    const colors = [0xe0bf6a, 0x79d65c, 0xd06b4d, 0x6f89ea, 0xb55d52, 0xc89243, 0xb8bfef];
     const color = colors[Math.floor(Math.random() * colors.length)];
     const px = this.player.x + Phaser.Math.Between(-80, 80);
     const py = this.player.y + Phaser.Math.Between(-60, 20);
