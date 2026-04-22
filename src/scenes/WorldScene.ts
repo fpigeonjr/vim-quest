@@ -485,8 +485,10 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-X', () => this.handleBreakCrate());
     this.input.keyboard?.on('keydown-I', () => this.handleInsertAction());
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
-      if (this.introOverlayActive) {
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
+      }
+      if (this.introOverlayActive) {
         this.closeDialogue();
         return;
       }

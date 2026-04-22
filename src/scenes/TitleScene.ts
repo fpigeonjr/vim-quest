@@ -25,6 +25,9 @@ export class TitleScene extends Phaser.Scene {
     if (this.input.keyboard) {
       this.input.keyboard.enabled = true;
       this.input.keyboard.on('keydown', (event: KeyboardEvent) => {
+        if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+          event.preventDefault();
+        }
         if (event.key === 'Enter' || event.key === ' ' || event.code === 'Enter' || event.code === 'Space') {
           this.startGame();
         }

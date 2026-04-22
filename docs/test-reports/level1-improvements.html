@@ -320,7 +320,7 @@
       <span class="pill-count">3</span> BUGS FIXED
     </div>
     <div class="summary-pill pill-added">
-      <span class="pill-count">5</span> FEATURES ADDED
+      <span class="pill-count">6</span> FEATURES ADDED
     </div>
     <div class="summary-pill pill-pass">
       <span class="pill-count">19</span> SCREENSHOTS PASS
@@ -569,6 +569,27 @@
         </div>
       </div>
 
+      <div class="fix-card added">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-feat">FEATURE</span>
+          <span class="fix-title">Browser key noise suppression</span>
+        </div>
+        <div class="fix-id">TitleScene.ts · WorldScene.ts · DungeonScene.ts</div>
+        <div class="fix-body">
+          <p>Invalid or unused key presses could still fall through to the browser while the game canvas
+          was focused, causing stray system feedback sounds even though the game itself did not bind those keys.</p>
+          <div class="code-block">
+            <span class="kw">this</span>.input.keyboard?.<span class="fn">on</span>(<span class="str">'keydown'</span>, (event: KeyboardEvent) =&gt; {<br>
+            &nbsp;&nbsp;<span class="kw">if</span> (!event.metaKey &amp;&amp; !event.ctrlKey &amp;&amp; !event.altKey) {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;event.<span class="fn">preventDefault</span>();<br>
+            &nbsp;&nbsp;}<br>
+            });
+          </div>
+          <p>The title screen, overworld, and dungeon now suppress default browser handling for normal gameplay key presses.
+          That keeps stray keys quiet and makes the intended in-game audio cues easier to hear.</p>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -674,6 +695,12 @@
           <td>Overworld loop plays after game start; interaction SFX fire; M toggles persisted mute state</td>
           <td class="status-fixed">NEW · PASS</td>
           <td>Audio uses WebAudio oscillators; mute status saved in GameState.audioMuted</td>
+        </tr>
+        <tr>
+          <td>Browser key suppression</td>
+          <td>Unused keys no longer trigger browser/system feedback while the canvas is focused</td>
+          <td class="status-fixed">NEW · PASS</td>
+          <td>preventDefault() applied to title, overworld, and dungeon keydown handlers for normal keys</td>
         </tr>
         <tr>
           <td>Flag / win condition</td>

@@ -266,6 +266,12 @@ export class DungeonScene extends Phaser.Scene {
       esc: Phaser.Input.Keyboard.KeyCodes.ESC,
     }) as { [key: string]: Phaser.Input.Keyboard.Key };
 
+    this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+        event.preventDefault();
+      }
+    });
+
     this.input.keyboard?.on('keydown-ESC', () => {
       if (this.dialogueActive) {
         this.closeDialogue();
