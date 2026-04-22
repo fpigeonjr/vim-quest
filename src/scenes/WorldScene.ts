@@ -496,9 +496,8 @@ export class WorldScene extends Phaser.Scene {
         this.closeDialogue();
         return;
       }
-      if (event.key === 'i' || event.key === 'I') {
-        this.handleInsertAction();
-      }
+      // NOTE: 'i' is handled exclusively via keydown-I above; do NOT add it here
+      // to avoid double-firing handleInsertAction() on each key press.
       if (event.key === '$') {
         this.handleLineSnap('end');
       }

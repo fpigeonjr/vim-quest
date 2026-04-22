@@ -207,23 +207,5 @@ await shot(page, '14-flag-triggered', 'FLAG REACHED — confetti + win overlay')
 await page.waitForTimeout(1800);
 await shot(page, '15-win-overlay', 'Win overlay — LEVEL 1 COMPLETE');
 
-await tap(page, 'x');
-await page.waitForTimeout(350);
-await shot(page, '14-crate-1-broken', 'Crate 1/3 broken');
-
-await warpTo(page, 45, 17);
-await tap(page, 'x');
-await page.waitForTimeout(350);
-await shot(page, '15-crate-2-broken', 'Crate 2/3 broken');
-
-await tap(page, 'x');
-await page.waitForTimeout(350);
-await shot(page, '16-all-crates-broken', 'All 3 crates broken — i command unlocked and gate wall removing');
-
-// ── 8. Show open gate ─────────────────────────────────────────────────────────
-await warpTo(page, 39, 22);
-await hold(page, 'l', 1000);
-await shot(page, '17-gate-open', 'Gate wall gone — eastern path clear');
-
 await browser.close();
 console.log('\nAll screenshots saved to', OUT);
