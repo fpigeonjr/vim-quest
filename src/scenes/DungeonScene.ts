@@ -16,6 +16,7 @@ import Phaser from 'phaser';
 import { audioManager } from '../game/audio';
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from '../game/config';
 import { GameState, REGISTRY_KEYS, saveState } from '../game/state';
+import { isSlashModalOpen, registerGlobalSlashPrompt } from '../systems/slashCommands';
 
 // Dungeon tile IDs (local — reuses same texture keys as overworld)
 const D = {
@@ -172,7 +173,10 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.dialogueActive) return;
+    if (this.dialogueActive || isSlashModalOpen(this)) {
+      this.player.setVelocity(0, 0);
+      return;
+    }
     this.handleMovement();
     this.checkTileEvents();
   }
@@ -274,9 +278,11 @@ export class DungeonScene extends Phaser.Scene {
       if (!event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
       }
+      if (isSlashModalOpen(this)) return;
     });
 
     this.input.keyboard?.on('keydown-ESC', () => {
+      if (isSlashModalOpen(this)) return;
       if (this.dialogueActive) {
         this.closeDialogue();
       } else {
@@ -285,17 +291,22 @@ export class DungeonScene extends Phaser.Scene {
     });
 
     this.input.keyboard?.on('keydown-SPACE', () => {
+      if (isSlashModalOpen(this)) return;
       if (this.dialogueActive) this.closeDialogue();
     });
 
     this.input.keyboard?.on('keydown-ENTER', () => {
+      if (isSlashModalOpen(this)) return;
       if (this.dialogueActive) this.closeDialogue();
     });
 
     // R = reset + return to world
     this.input.keyboard?.on('keydown-R', () => {
+      if (isSlashModalOpen(this)) return;
       this.exitDungeon();
     });
+
+    registerGlobalSlashPrompt(this);
   }
 
   private handleMovement() {

@@ -5,6 +5,7 @@ import { TitleScene } from '../scenes/TitleScene';
 import { WorldScene } from '../scenes/WorldScene';
 import { UIScene } from '../scenes/UIScene';
 import { DungeonScene } from '../scenes/DungeonScene';
+import { Zone2Scene } from '../scenes/Zone2Scene';
 
 export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
@@ -24,5 +25,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, PreloadScene, TitleScene, WorldScene, UIScene, DungeonScene],
+  scene: [BootScene, PreloadScene, TitleScene, WorldScene, UIScene, DungeonScene, Zone2Scene],
 };

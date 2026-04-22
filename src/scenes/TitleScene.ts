@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { audioManager } from '../game/audio';
 import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../game/config';
+import { isSlashModalOpen, registerGlobalSlashPrompt } from '../systems/slashCommands';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -28,14 +29,20 @@ export class TitleScene extends Phaser.Scene {
         if (!event.metaKey && !event.ctrlKey && !event.altKey) {
           event.preventDefault();
         }
+        if (isSlashModalOpen(this)) return;
         if (event.key === 'Enter' || event.key === ' ' || event.code === 'Enter' || event.code === 'Space') {
           this.startGame();
         }
       });
     }
 
+    registerGlobalSlashPrompt(this);
+
     // Also add pointer/touch input as fallback
-    this.input.once('pointerdown', () => this.startGame());
+    this.input.once('pointerdown', () => {
+      if (isSlashModalOpen(this)) return;
+      this.startGame();
+    });
   }
 
   private startGame() {
@@ -120,7 +127,7 @@ export class TitleScene extends Phaser.Scene {
       .text(
         GAME_WIDTH / 2,
         430,
-        'Move with h j k l\nUnlock shrines for w b, 0 $, x, and i\nPress Enter, Space, or click to begin',
+        'Move with h j k l\nUnlock shrines for w b, 0 $, x, and i\nPress / for slash warp commands (ex: /level-2)\nPress Enter, Space, or click to begin',
         {
           fontFamily: 'Courier New',
           fontSize: '18px',

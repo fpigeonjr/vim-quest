@@ -17,6 +17,7 @@ import {
   TILE_IDS,
   TilemapData,
 } from '../systems/tilemap';
+import { isSlashModalOpen, registerGlobalSlashPrompt } from '../systems/slashCommands';
 import { GameState, REGISTRY_KEYS, VimMode, saveState, clearSavedState } from '../game/state';
 
 // ─── NPC Mentor dialogue lines ────────────────────────────────────────────────
@@ -131,6 +132,10 @@ export class WorldScene extends Phaser.Scene {
 
   update() {
     if (this.dialogueActive) {
+      this.player.setVelocity(0, 0);
+      return;
+    }
+    if (isSlashModalOpen(this)) {
       this.player.setVelocity(0, 0);
       return;
     }
@@ -483,15 +488,31 @@ export class WorldScene extends Phaser.Scene {
       esc: Phaser.Input.Keyboard.KeyCodes.ESC,
     }) as { [key: string]: Phaser.Input.Keyboard.Key };
 
-    this.input.keyboard?.on('keydown-W', () => this.handleWordJump(1));
-    this.input.keyboard?.on('keydown-B', () => this.handleWordJump(-1));
-    this.input.keyboard?.on('keydown-ZERO', () => this.handleLineSnap('start'));
-    this.input.keyboard?.on('keydown-X', () => this.handleBreakCrate());
-    this.input.keyboard?.on('keydown-I', () => this.handleInsertAction());
+    this.input.keyboard?.on('keydown-W', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleWordJump(1);
+    });
+    this.input.keyboard?.on('keydown-B', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleWordJump(-1);
+    });
+    this.input.keyboard?.on('keydown-ZERO', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleLineSnap('start');
+    });
+    this.input.keyboard?.on('keydown-X', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleBreakCrate();
+    });
+    this.input.keyboard?.on('keydown-I', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleInsertAction();
+    });
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
       if (!event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
       }
+      if (isSlashModalOpen(this)) return;
       if (this.introOverlayActive) {
         this.closeDialogue();
         return;
@@ -503,6 +524,7 @@ export class WorldScene extends Phaser.Scene {
       }
     });
     this.input.keyboard?.on('keydown-ESC', () => {
+      if (isSlashModalOpen(this)) return;
       if (this.introOverlayActive) {
         this.closeDialogue();
         return;
@@ -514,6 +536,7 @@ export class WorldScene extends Phaser.Scene {
       }
     });
     this.input.keyboard?.on('keydown-SPACE', () => {
+      if (isSlashModalOpen(this)) return;
       if (this.introOverlayActive) {
         this.closeDialogue();
         return;
@@ -531,6 +554,7 @@ export class WorldScene extends Phaser.Scene {
       }
     });
     this.input.keyboard?.on('keydown-ENTER', () => {
+      if (isSlashModalOpen(this)) return;
       if (this.introOverlayActive) {
         this.closeDialogue();
         return;
@@ -548,10 +572,13 @@ export class WorldScene extends Phaser.Scene {
       }
     });
     this.input.keyboard?.on('keydown-R', () => {
+      if (isSlashModalOpen(this)) return;
       clearSavedState();
       this.scene.restart();
       this.registry.set('gameState', null);
     });
+
+    registerGlobalSlashPrompt(this);
   }
 
   // ─── Restore state ────────────────────────────────────────────────────────
