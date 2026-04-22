@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audioManager } from '../game/audio';
 import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../game/config';
 
 export class TitleScene extends Phaser.Scene {
@@ -35,6 +36,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private startGame() {
+    void audioManager.resume(this);
     this.scene.start('world');
     this.scene.launch('ui');
   }

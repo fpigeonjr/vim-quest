@@ -13,6 +13,7 @@ export type GameState = {
   masteryRelicFound: boolean;
   mentorMet: boolean;
   introSeen: boolean;
+  audioMuted: boolean;
 };
 
 export const defaultGameState = (): GameState => ({
@@ -29,6 +30,7 @@ export const defaultGameState = (): GameState => ({
   masteryRelicFound: false,
   mentorMet: false,
   introSeen: false,
+  audioMuted: false,
 });
 
 // Full command registry — defines every command's display label and unlock tier

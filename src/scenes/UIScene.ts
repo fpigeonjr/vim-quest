@@ -1,12 +1,15 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../game/config';
-import { COMMAND_REGISTRY, GameState, REGISTRY_KEYS } from '../game/state';
+import { audioManager } from '../game/audio';
+import { COMMAND_REGISTRY, GameState, REGISTRY_KEYS, saveState } from '../game/state';
 
 export class UIScene extends Phaser.Scene {
   private modeText!: Phaser.GameObjects.Text;
   private areaText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
   private commandsContainer!: Phaser.GameObjects.Container;
+  private audioText!: Phaser.GameObjects.Text;
+  private readonly onMuteKey = () => this.toggleMute();
 
   constructor() {
     super('ui');
@@ -35,12 +38,19 @@ export class UIScene extends Phaser.Scene {
       .text(GAME_WIDTH - 20, 58, '■ locked  ■ unlocked', this.style('#907f68', 10))
       .setOrigin(1, 0);
 
+    this.audioText = this.add
+      .text(GAME_WIDTH - 20, 24, '', this.style('#6b7b82', 12, 'bold'))
+      .setOrigin(1, 0);
+
+    this.input.keyboard?.on('keydown-M', this.onMuteKey);
+
     this.registry.events.on('changedata', this.refresh, this);
     this.refresh();
   }
 
   shutdown() {
     this.registry.events.off('changedata', this.refresh, this);
+    this.input.keyboard?.off('keydown-M', this.onMuteKey);
   }
 
   private refresh() {
@@ -50,6 +60,7 @@ export class UIScene extends Phaser.Scene {
     this.modeText.setText(`[${state.mode.toUpperCase()}]`);
     this.areaText.setText(state.areaName);
     this.hintText.setText(state.hint);
+    this.audioText.setText(state.audioMuted ? '[M] Audio Off' : '[M] Audio On');
 
     // Rebuild command chips
     this.commandsContainer.removeAll(true);
@@ -96,5 +107,21 @@ export class UIScene extends Phaser.Scene {
       color,
       fontStyle: fontStyle as 'normal' | 'bold',
     };
+  }
+
+  private toggleMute() {
+    const state = this.registry.get(REGISTRY_KEYS.state) as GameState;
+    if (!state) return;
+
+    const nextState = { ...state, audioMuted: !state.audioMuted };
+    this.registry.set(REGISTRY_KEYS.state, nextState);
+    saveState(nextState);
+    audioManager.setMuted(nextState.audioMuted);
+
+    if (!nextState.audioMuted) {
+      void audioManager.resume(this);
+      audioManager.playSfx(this, 'dialogueOpen');
+      audioManager.startOverworldLoop(this);
+    }
   }
 }

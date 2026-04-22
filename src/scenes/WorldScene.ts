@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { audioManager } from '../game/audio';
 import { TILE_SIZE } from '../game/config';
 import {
   CONSOLE_POSITION,
@@ -111,6 +112,10 @@ export class WorldScene extends Phaser.Scene {
     this.createInput();
 
     const state = this.getState();
+    audioManager.setMuted(state.audioMuted);
+    void audioManager.resume(this).then(() => {
+      audioManager.startOverworldLoop(this);
+    });
     this.syncState({
       areaName: 'Cursor Meadow',
       hint: state.mentorMet
@@ -388,6 +393,7 @@ export class WorldScene extends Phaser.Scene {
   private showDialogue(speaker: string, lines: string[]) {
     this.dialogueActive = true;
     this.introOverlayActive = false;
+    audioManager.playSfx(this, 'dialogueOpen');
     if (this.dialogueBox) this.dialogueBox.destroy();
 
     const boxW = 700;
@@ -431,6 +437,7 @@ export class WorldScene extends Phaser.Scene {
   private closeDialogue() {
     this.dialogueActive = false;
     this.introOverlayActive = false;
+    audioManager.playSfx(this, 'dialogueClose');
     if (this.dialogueBox) {
       this.dialogueBox.destroy();
       this.dialogueBox = undefined;
@@ -610,6 +617,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.syncState({ unlockedCommands: Array.from(unlocked), hint: shrine.hint });
     this.refreshConsoleBeacon();
+    audioManager.playSfx(this, 'unlock');
 
     if (shrine.unlock.length > 0) {
       this.showToast(`${shrine.title}: unlocked ${shrine.unlock.join(' ')}`);
@@ -638,6 +646,7 @@ export class WorldScene extends Phaser.Scene {
       level1Complete: true,
       hint: 'LEVEL 1 COMPLETE! You have mastered the cursor commands. Well done!',
     });
+    audioManager.playSfx(this, 'win');
 
     this.player.setVelocity(0, 0);
     this.player.setActive(false);
@@ -775,6 +784,7 @@ export class WorldScene extends Phaser.Scene {
             cratesDestroyed: newCount, gateUnlocked: true,
             hint: 'All crates destroyed! The gate to Wave 1 is now open. You found the i command!',
           });
+          audioManager.playSfx(this, 'unlock');
           this.showToast('All crates broken! Gate unlocked! Found i command!');
           this.openGate();
 
@@ -787,6 +797,7 @@ export class WorldScene extends Phaser.Scene {
             cratesDestroyed: newCount,
             hint: `Crate destroyed (${newCount}/3). Destroy all crates to unlock the gate.`,
           });
+          audioManager.playSfx(this, 'crate');
           this.showToast('Crate removed with x');
         }
         return;
@@ -829,11 +840,13 @@ export class WorldScene extends Phaser.Scene {
     }
     this.syncState({ bridgeBuilt: true, hint: 'Bridge activated. Cross the river to reach the Wave 1 gate.' });
     this.refreshConsoleBeacon();
+    audioManager.playSfx(this, 'bridge');
     this.showToast('Insert console activated the bridge');
   }
 
   private setMode(mode: VimMode) {
     this.syncState({ mode });
+    audioManager.playSfx(this, 'mode');
     if (mode === 'insert') { this.player.setTint(0x88ccff); }
     else { this.player.clearTint(); }
   }

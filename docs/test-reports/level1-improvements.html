@@ -320,7 +320,7 @@
       <span class="pill-count">3</span> BUGS FIXED
     </div>
     <div class="summary-pill pill-added">
-      <span class="pill-count">4</span> FEATURES ADDED
+      <span class="pill-count">5</span> FEATURES ADDED
     </div>
     <div class="summary-pill pill-pass">
       <span class="pill-count">19</span> SCREENSHOTS PASS
@@ -547,6 +547,28 @@
         </div>
       </div>
 
+      <div class="fix-card added">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-feat">FEATURE</span>
+          <span class="fix-title">Procedural music + interaction sound effects</span>
+        </div>
+        <div class="fix-id">audio.ts · WorldScene.ts · UIScene.ts</div>
+        <div class="fix-body">
+          <p>Cursor Meadow was still completely silent, which made shrine unlocks, crate breaks,
+          bridge activation, and the win state feel flatter than the visual feedback suggested.</p>
+          <div class="code-block">
+            <span class="kw">audioManager</span>.<span class="fn">startOverworldLoop</span>(<span class="kw">this</span>);<br>
+            <span class="kw">audioManager</span>.<span class="fn">playSfx</span>(<span class="kw">this</span>, <span class="str">'unlock'</span>);<br>
+            <span class="kw">audioManager</span>.<span class="fn">playSfx</span>(<span class="kw">this</span>, <span class="str">'crate'</span>);<br>
+            <span class="kw">audioManager</span>.<span class="fn">playSfx</span>(<span class="kw">this</span>, <span class="str">'bridge'</span>);<br>
+            <span class="kw">audioManager</span>.<span class="fn">playSfx</span>(<span class="kw">this</span>, <span class="str">'win'</span>);
+          </div>
+          <p>A lightweight procedural soundtrack now runs in the overworld, with synthesized cues for
+          dialogue, mode changes, shrine unlocks, crate breaks, bridge activation, and victory.
+          The UI also adds an <code>[M] Audio On/Off</code> toggle that persists in save data.</p>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -648,6 +670,12 @@
           <td>Prompt text switches between River Console, [i] Build bridge, and Bridge active</td>
         </tr>
         <tr>
+          <td>Procedural audio</td>
+          <td>Overworld loop plays after game start; interaction SFX fire; M toggles persisted mute state</td>
+          <td class="status-fixed">NEW · PASS</td>
+          <td>Audio uses WebAudio oscillators; mute status saved in GameState.audioMuted</td>
+        </tr>
+        <tr>
           <td>Flag / win condition</td>
           <td>Confetti burst + win overlay + LEVEL 1 COMPLETE text</td>
           <td class="status-pass">PASS</td>
@@ -682,12 +710,6 @@
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td>UX-03</td>
-          <td>Audio — no sound effects for movement, shrine unlock, crate break, win</td>
-          <td style="color:var(--muted)">LOW</td>
-          <td style="color:var(--muted)">OPEN</td>
-        </tr>
         <tr>
           <td>UX-04</td>
           <td>w/b road constraint doesn't match real Vim word-jump semantics</td>
