@@ -50,6 +50,7 @@ class VimQuestAudio {
   private muted = false;
   private loopId?: number;
   private currentLoop = '';
+  private loopPhraseIndex = 0;
 
   bind(scene: Phaser.Scene) {
     const manager = scene.sound as Phaser.Sound.WebAudioSoundManager & { context?: AudioContextLike };
@@ -111,6 +112,7 @@ class VimQuestAudio {
       this.loopId = undefined;
     }
     this.currentLoop = '';
+    this.loopPhraseIndex = 0;
   }
 
   playSfx(
@@ -163,14 +165,14 @@ class VimQuestAudio {
         break;
       case 'dialogueOpen':
         this.playChord(start, [
-          { freq: 261.63, duration: 0.08, volume: 0.022, type: 'triangle' },
-          { freq: 329.63, duration: 0.09, volume: 0.02, type: 'triangle', at: 0.05 },
+          { freq: 659.25, duration: 0.09, volume: 0.018, type: 'sine' },
+          { freq: 783.99, duration: 0.11, volume: 0.014, type: 'sine', at: 0.04 },
         ]);
         break;
       case 'dialogueClose':
         this.playChord(start, [
-          { freq: 329.63, duration: 0.07, volume: 0.02, type: 'triangle' },
-          { freq: 261.63, duration: 0.09, volume: 0.02, type: 'triangle', at: 0.05 },
+          { freq: 587.33, duration: 0.07, volume: 0.015, type: 'sine' },
+          { freq: 698.46, duration: 0.08, volume: 0.011, type: 'sine', at: 0.03 },
         ]);
         break;
       case 'win':
@@ -228,16 +230,25 @@ class VimQuestAudio {
   private scheduleOverworldPhrase() {
     if (!this.context || this.muted) return;
     const start = this.context.currentTime + 0.02;
-    OVERWORLD_BASS.forEach((tone) => this.playTone(start + (tone.at ?? 0), tone));
-    OVERWORLD_MELODY.forEach((tone) => this.playTone(start + (tone.at ?? 0), tone));
+    const ramp = Math.min(1, 0.45 + this.loopPhraseIndex * 0.25);
+    OVERWORLD_BASS.forEach((tone) => this.playTone(start + (tone.at ?? 0), { ...tone, volume: tone.volume * ramp }));
+    OVERWORLD_MELODY.forEach((tone, index) => {
+      const softened = this.loopPhraseIndex === 0 && index < 2;
+      this.playTone(start + (tone.at ?? 0), {
+        ...tone,
+        type: softened ? 'sine' : tone.type,
+        volume: tone.volume * (softened ? 0.42 : ramp),
+      });
+    });
     for (let step = 0; step < 8; step += 1) {
       this.playTone(start + step * NOTE_STEP, {
         freq: step % 2 === 0 ? 784 : 659.25,
         duration: 0.03,
-        volume: 0.012,
-        type: 'square',
+        volume: 0.012 * (this.loopPhraseIndex === 0 ? 0.2 : ramp),
+        type: this.loopPhraseIndex === 0 ? 'sine' : 'square',
       });
     }
+    this.loopPhraseIndex += 1;
   }
 
   private scheduleDungeonPhrase() {
