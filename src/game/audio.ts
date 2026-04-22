@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 type AudioContextLike = AudioContext;
 
 const OVERWORLD_PHRASE_MS = 3200;
+const DUNGEON_PHRASE_MS = 4200;
 const NOTE_STEP = 0.4;
 
 const OVERWORLD_MELODY = [
@@ -23,6 +24,19 @@ const OVERWORLD_BASS = [
   { at: 2.4, freq: 196.0, duration: 0.34, volume: 0.018, type: 'sine' as OscillatorType },
 ];
 
+const DUNGEON_DRONE = [
+  { at: 0.0, freq: 73.42, duration: 1.5, volume: 0.018, type: 'sine' as OscillatorType },
+  { at: 1.4, freq: 69.3, duration: 1.5, volume: 0.016, type: 'sine' as OscillatorType },
+  { at: 2.8, freq: 61.74, duration: 1.3, volume: 0.018, type: 'sine' as OscillatorType },
+];
+
+const DUNGEON_MELODY = [
+  { at: 0.2, freq: 220.0, duration: 0.45, volume: 0.02, type: 'triangle' as OscillatorType },
+  { at: 1.0, freq: 207.65, duration: 0.4, volume: 0.018, type: 'triangle' as OscillatorType },
+  { at: 1.9, freq: 174.61, duration: 0.55, volume: 0.02, type: 'triangle' as OscillatorType },
+  { at: 3.0, freq: 164.81, duration: 0.5, volume: 0.018, type: 'triangle' as OscillatorType },
+];
+
 type Tone = {
   at?: number;
   duration: number;
@@ -34,7 +48,7 @@ type Tone = {
 class VimQuestAudio {
   private context?: AudioContextLike;
   private muted = false;
-  private overworldLoopId?: number;
+  private loopId?: number;
   private currentLoop = '';
 
   bind(scene: Phaser.Scene) {
@@ -68,25 +82,54 @@ class VimQuestAudio {
   startOverworldLoop(scene: Phaser.Scene) {
     this.bind(scene);
     if (!this.context || this.muted) return;
-    if (this.currentLoop === 'overworld' && this.overworldLoopId !== undefined) return;
+    if (this.currentLoop === 'overworld' && this.loopId !== undefined) return;
 
     this.stopMusic();
     this.currentLoop = 'overworld';
     this.scheduleOverworldPhrase();
-    this.overworldLoopId = window.setInterval(() => {
+    this.loopId = window.setInterval(() => {
       this.scheduleOverworldPhrase();
     }, OVERWORLD_PHRASE_MS);
   }
 
+  startDungeonLoop(scene: Phaser.Scene) {
+    this.bind(scene);
+    if (!this.context || this.muted) return;
+    if (this.currentLoop === 'dungeon' && this.loopId !== undefined) return;
+
+    this.stopMusic();
+    this.currentLoop = 'dungeon';
+    this.scheduleDungeonPhrase();
+    this.loopId = window.setInterval(() => {
+      this.scheduleDungeonPhrase();
+    }, DUNGEON_PHRASE_MS);
+  }
+
   stopMusic() {
-    if (this.overworldLoopId !== undefined) {
-      window.clearInterval(this.overworldLoopId);
-      this.overworldLoopId = undefined;
+    if (this.loopId !== undefined) {
+      window.clearInterval(this.loopId);
+      this.loopId = undefined;
     }
     this.currentLoop = '';
   }
 
-  playSfx(scene: Phaser.Scene, cue: 'unlock' | 'crate' | 'bridge' | 'mode' | 'dialogueOpen' | 'dialogueClose' | 'win') {
+  playSfx(
+    scene: Phaser.Scene,
+    cue:
+      | 'unlock'
+      | 'crate'
+      | 'bridge'
+      | 'mode'
+      | 'dialogueOpen'
+      | 'dialogueClose'
+      | 'win'
+      | 'dungeonEnter'
+      | 'dungeonExit'
+      | 'checkpoint'
+      | 'relic'
+      | 'warning'
+      | 'roomShift',
+  ) {
     this.bind(scene);
     if (!this.context || this.muted) return;
 
@@ -138,6 +181,47 @@ class VimQuestAudio {
           { freq: 1046.5, duration: 0.22, volume: 0.028, type: 'triangle', at: 0.32 },
         ]);
         break;
+      case 'dungeonEnter':
+        this.playChord(start, [
+          { freq: 196.0, duration: 0.18, volume: 0.026, type: 'triangle' },
+          { freq: 146.83, duration: 0.28, volume: 0.022, type: 'sine', at: 0.06 },
+          { freq: 98.0, duration: 0.42, volume: 0.018, type: 'sawtooth', at: 0.1 },
+        ]);
+        break;
+      case 'dungeonExit':
+        this.playChord(start, [
+          { freq: 164.81, duration: 0.16, volume: 0.022, type: 'triangle' },
+          { freq: 220.0, duration: 0.14, volume: 0.02, type: 'triangle', at: 0.08 },
+          { freq: 293.66, duration: 0.18, volume: 0.022, type: 'triangle', at: 0.16 },
+        ]);
+        break;
+      case 'checkpoint':
+        this.playChord(start, [
+          { freq: 246.94, duration: 0.08, volume: 0.018, type: 'square' },
+          { freq: 311.13, duration: 0.09, volume: 0.018, type: 'square', at: 0.05 },
+        ]);
+        break;
+      case 'relic':
+        this.playChord(start, [
+          { freq: 329.63, duration: 0.14, volume: 0.026, type: 'triangle' },
+          { freq: 392.0, duration: 0.16, volume: 0.024, type: 'triangle', at: 0.1 },
+          { freq: 523.25, duration: 0.22, volume: 0.024, type: 'triangle', at: 0.22 },
+          { freq: 659.25, duration: 0.32, volume: 0.022, type: 'triangle', at: 0.34 },
+        ]);
+        break;
+      case 'warning':
+        this.playChord(start, [
+          { freq: 130.81, duration: 0.1, volume: 0.024, type: 'sawtooth' },
+          { freq: 116.54, duration: 0.12, volume: 0.022, type: 'sawtooth', at: 0.06 },
+        ]);
+        break;
+      case 'roomShift':
+        this.playChord(start, [
+          { freq: 174.61, duration: 0.12, volume: 0.02, type: 'triangle' },
+          { freq: 220.0, duration: 0.14, volume: 0.019, type: 'triangle', at: 0.08 },
+          { freq: 174.61, duration: 0.16, volume: 0.018, type: 'triangle', at: 0.2 },
+        ]);
+        break;
     }
   }
 
@@ -151,6 +235,21 @@ class VimQuestAudio {
         freq: step % 2 === 0 ? 784 : 659.25,
         duration: 0.03,
         volume: 0.012,
+        type: 'square',
+      });
+    }
+  }
+
+  private scheduleDungeonPhrase() {
+    if (!this.context || this.muted) return;
+    const start = this.context.currentTime + 0.02;
+    DUNGEON_DRONE.forEach((tone) => this.playTone(start + (tone.at ?? 0), tone));
+    DUNGEON_MELODY.forEach((tone) => this.playTone(start + (tone.at ?? 0), tone));
+    for (let step = 0; step < 7; step += 1) {
+      this.playTone(start + step * 0.58, {
+        freq: step % 2 === 0 ? 110.0 : 98.0,
+        duration: 0.05,
+        volume: 0.008,
         type: 'square',
       });
     }

@@ -13,6 +13,7 @@
  */
 
 import Phaser from 'phaser';
+import { audioManager } from '../game/audio';
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from '../game/config';
 import { GameState, REGISTRY_KEYS, VimMode, saveState } from '../game/state';
 
@@ -122,6 +123,11 @@ export class DungeonScene extends Phaser.Scene {
 
     const state = this.getState();
     this.relicCollected = state.masteryRelicFound;
+    audioManager.setMuted(state.audioMuted);
+    void audioManager.resume(this).then(() => {
+      audioManager.startDungeonLoop(this);
+      audioManager.playSfx(this, 'dungeonEnter');
+    });
 
     this.buildRoom(this.currentRoom);
     this.spawnPlayer(this.currentRoom);
@@ -330,6 +336,7 @@ export class DungeonScene extends Phaser.Scene {
         this.showToast('You have already claimed the Movement Relic.');
       }
     } else if (this.currentRoom === 0) {
+      audioManager.playSfx(this, 'warning');
       this.showToast('The true relic lies deeper in the shrine.');
       this.time.delayedCall(300, () => { this._altarTriggered = false; });
     } else if (this.currentRoom === 1) {
@@ -352,6 +359,7 @@ export class DungeonScene extends Phaser.Scene {
       });
     } else if (this.currentRoom === 1) {
       // First checkpoint gives a concrete route hint for the maze.
+      audioManager.playSfx(this, 'checkpoint');
       if (!this.mazeHintShown) {
         this.mazeHintShown = true;
         this.syncState({ hint: 'Maze hint: right gap, left gap, right gap.' });
@@ -363,8 +371,10 @@ export class DungeonScene extends Phaser.Scene {
     } else if (this.currentRoom === 2) {
       // Exit portal at bottom of altar room — return to overworld
       if (this.relicCollected) {
+        audioManager.playSfx(this, 'dungeonExit');
         this.time.delayedCall(200, () => this.exitDungeon());
       } else {
+        audioManager.playSfx(this, 'warning');
         this.showToast('Touch the altar first to claim the relic!');
         this.time.delayedCall(600, () => { this._markerTriggered = false; });
       }
@@ -375,6 +385,7 @@ export class DungeonScene extends Phaser.Scene {
     this._altarTriggered = false;
     this._markerTriggered = false;
     this.currentRoom = room;
+    audioManager.playSfx(this, 'roomShift');
 
     this.cameras.main.fadeOut(250, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -415,6 +426,7 @@ export class DungeonScene extends Phaser.Scene {
   private collectRelic() {
     this.relicCollected = true;
     this.refreshObjectiveGlow();
+    audioManager.playSfx(this, 'relic');
 
     // Flash effect
     this.cameras.main.flash(500, 255, 215, 0);
@@ -462,6 +474,7 @@ export class DungeonScene extends Phaser.Scene {
   private showDialogue(speaker: string, lines: string[], onClose?: () => void) {
     this.dialogueActive = true;
     this._onDialogueClose = onClose;
+    audioManager.playSfx(this, 'dialogueOpen');
 
     if (this.dialogueBox) this.dialogueBox.destroy();
 
@@ -499,6 +512,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private closeDialogue() {
     this.dialogueActive = false;
+    audioManager.playSfx(this, 'dialogueClose');
     if (this.dialogueBox) {
       this.dialogueBox.destroy();
       this.dialogueBox = undefined;
@@ -511,6 +525,7 @@ export class DungeonScene extends Phaser.Scene {
   // ─── Exit ─────────────────────────────────────────────────────────────────
 
   private exitDungeon() {
+    audioManager.stopMusic();
     this.cameras.main.fadeOut(350, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.syncState({
@@ -520,6 +535,7 @@ export class DungeonScene extends Phaser.Scene {
           : 'Return to the Cursor Shrine to claim the Movement Relic.',
         mode: 'normal',
       });
+      audioManager.startOverworldLoop(this);
       this.scene.stop('dungeon');
       this.scene.wake('world');
     });
