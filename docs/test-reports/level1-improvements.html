@@ -311,7 +311,7 @@
   <div class="header">
     <div class="header-badge">◈ LEVEL 1 IMPROVEMENT REPORT ◈</div>
     <h1>Cursor Meadow<br>Polish &amp; Bug Fix Pass</h1>
-    <div class="header-meta">Tested: April 20, 2026 &nbsp;·&nbsp; Build: Phaser 3 / Vite / TypeScript &nbsp;·&nbsp; Follows Level 1 Test Report</div>
+    <div class="header-meta">Tested: April 21, 2026 &nbsp;·&nbsp; Build: Phaser 3 / Vite / TypeScript &nbsp;·&nbsp; Follows Level 1 Test Report</div>
   </div>
 
   <!-- ── Summary bar ── -->
@@ -320,7 +320,7 @@
       <span class="pill-count">3</span> BUGS FIXED
     </div>
     <div class="summary-pill pill-added">
-      <span class="pill-count">2</span> FEATURES ADDED
+      <span class="pill-count">4</span> FEATURES ADDED
     </div>
     <div class="summary-pill pill-pass">
       <span class="pill-count">19</span> SCREENSHOTS PASS
@@ -499,6 +499,54 @@
         </div>
       </div>
 
+      <div class="fix-card added">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-feat">FEATURE</span>
+          <span class="fix-title">First-load h j k l primer</span>
+        </div>
+        <div class="fix-id">WorldScene.ts · showIntroOverlay() · state.ts</div>
+        <div class="fix-body">
+          <p>New players were still entering Cursor Meadow without a guaranteed explanation of the
+          base movement keys. The Mentor helped, but the game allowed wandering before that lesson happened.</p>
+          <div class="code-block">
+            <span class="kw">if</span> (!state.introSeen) {<br>
+            &nbsp;&nbsp;<span class="kw">this</span>.<span class="fn">showIntroOverlay</span>();<br>
+            }<br><br>
+            <span class="kw">this</span>.<span class="fn">syncState</span>({<br>
+            &nbsp;&nbsp;introSeen: <span class="kw">true</span>,<br>
+            &nbsp;&nbsp;hint: <span class="str">'Move with h j k l, then speak to the Mentor near spawn.'</span>,<br>
+            });
+          </div>
+          <p>The first entry to Level 1 now shows a blocking primer that teaches
+          <code>h</code>, <code>j</code>, <code>k</code>, and <code>l</code>, then dismisses on any key.
+          A persisted <code>introSeen</code> flag keeps the overlay from reappearing on later loads.</p>
+        </div>
+      </div>
+
+      <div class="fix-card added">
+        <div class="fix-card-header">
+          <span class="fix-badge badge-feat">FEATURE</span>
+          <span class="fix-title">River Console beacon + proximity prompt</span>
+        </div>
+        <div class="fix-id">WorldScene.ts · createConsoleBeacon() · checkConsoleProximity()</div>
+        <div class="fix-body">
+          <p>The signpost near the river helped, but the console tile itself still blended into the map.
+          Players could reach the river bank and still miss the exact activation point.</p>
+          <div class="code-block">
+            <span class="kw">this</span>.consoleGlow = <span class="kw">this</span>.add<br>
+            &nbsp;&nbsp;.<span class="fn">rectangle</span>(cx, cy, TILE_SIZE + <span class="num">12</span>, TILE_SIZE + <span class="num">12</span>, <span class="num">0x8ad7e8</span>, <span class="num">0.2</span>);<br><br>
+            <span class="kw">this</span>.tweens.<span class="fn">add</span>({<br>
+            &nbsp;&nbsp;targets: <span class="kw">this</span>.consoleGlow,<br>
+            &nbsp;&nbsp;alpha: <span class="num">0.55</span>, scaleX: <span class="num">1.18</span>, scaleY: <span class="num">1.18</span>,<br>
+            &nbsp;&nbsp;duration: <span class="num">850</span>, yoyo: <span class="kw">true</span>, repeat: -<span class="num">1</span>,<br>
+            });
+          </div>
+          <p>The River Console now has a pulsing cyan beacon and a context-aware prompt.
+          Before <code>i</code> unlock it reads <code>River Console</code>, after unlock it switches to
+          <code>[i] Build bridge</code>, and after activation it settles on <code>Bridge active</code>.</p>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -588,6 +636,18 @@
           <td>Confirmed in screenshots 02, 03, 04, 06, 10</td>
         </tr>
         <tr>
+          <td>Intro primer overlay</td>
+          <td>First load blocks movement, teaches h j k l, dismisses on key press, never repeats after save</td>
+          <td class="status-fixed">NEW · PASS</td>
+          <td>Persisted via introSeen in GameState; playthrough updated to dismiss it before movement</td>
+        </tr>
+        <tr>
+          <td>River Console beacon</td>
+          <td>Console tile pulses and shows a nearby prompt matching current progression state</td>
+          <td class="status-fixed">NEW · PASS</td>
+          <td>Prompt text switches between River Console, [i] Build bridge, and Bridge active</td>
+        </tr>
+        <tr>
           <td>Flag / win condition</td>
           <td>Confetti burst + win overlay + LEVEL 1 COMPLETE text</td>
           <td class="status-pass">PASS</td>
@@ -622,18 +682,6 @@
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td>UX-01</td>
-          <td>Console tile discoverability — needs idle pulse animation or proximity prompt</td>
-          <td style="color:var(--warn)">MED</td>
-          <td style="color:var(--warn)">OPEN</td>
-        </tr>
-        <tr>
-          <td>UX-02</td>
-          <td>No onboarding for hjkl newcomers — brief intro screen or dialogue NPC</td>
-          <td style="color:var(--warn)">MED</td>
-          <td style="color:var(--warn)">OPEN</td>
-        </tr>
         <tr>
           <td>UX-03</td>
           <td>Audio — no sound effects for movement, shrine unlock, crate break, win</td>
@@ -704,7 +752,7 @@
       </div>
       <div class="gallery-item">
         <img src="10-at-console.png" alt="At River Console" />
-        <div class="gallery-caption">10 · At River Console — signpost "Press i to build bridge" visible</div>
+        <div class="gallery-caption">10 · At River Console — signpost, console beacon, and bridge prompt visible</div>
       </div>
       <div class="gallery-item">
         <img src="11-bridge-built.png" alt="Bridge activated" />
@@ -731,7 +779,7 @@
 
   <!-- ── Footer ── -->
   <div class="footer">
-    <p>Vim Quest · Level 1 Improvements Report · April 20, 2026</p>
+    <p>Vim Quest · Level 1 Improvements Report · April 21, 2026</p>
     <p style="margin-top:6px;">Build: Phaser 3.90 / Vite 5.4 / TypeScript 5.9 · Tested with Playwright</p>
     <p style="margin-top:6px;"><a href="level1-test-report.html">← Level 1 Test Report</a> &nbsp;|&nbsp; <a href="level1-fixes.html">Level 1 Fixes Report</a></p>
   </div>

@@ -76,6 +76,8 @@ export class WorldScene extends Phaser.Scene {
   private dialogueBox?: Phaser.GameObjects.Container;
   private dialogueActive = false;
   private introOverlayActive = false;
+  private consoleGlow!: Phaser.GameObjects.Rectangle;
+  private consolePrompt!: Phaser.GameObjects.Text;
 
   // Dungeon entrance glow + transition guard
   private dungeonGlow!: Phaser.GameObjects.Rectangle;
@@ -104,6 +106,7 @@ export class WorldScene extends Phaser.Scene {
     this.createPlayer();
     this.createCollisions();
     this.createNPC();
+    this.createConsoleBeacon();
     this.createDungeonEntrance();
     this.createInput();
 
@@ -129,6 +132,7 @@ export class WorldScene extends Phaser.Scene {
     this.handleMovement();
     this.checkDungeonEntrance();
     this.checkNPCProximity();
+    this.checkConsoleProximity();
   }
 
   // ─── World building ───────────────────────────────────────────────────────
@@ -245,6 +249,68 @@ export class WorldScene extends Phaser.Scene {
     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, nx, ny);
     const near = dist < TILE_SIZE * 2;
     this.npcPrompt.setVisible(near);
+  }
+
+  private createConsoleBeacon() {
+    const cx = CONSOLE_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
+    const cy = CONSOLE_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
+
+    this.consoleGlow = this.add
+      .rectangle(cx, cy, TILE_SIZE + 12, TILE_SIZE + 12, 0x8ad7e8, 0.2)
+      .setDepth(2);
+
+    this.consolePrompt = this.add
+      .text(cx, cy - TILE_SIZE * 1.2, '[i] Build bridge', {
+        fontFamily: 'Courier New',
+        fontSize: '11px',
+        color: '#31515a',
+        backgroundColor: '#e7f7fb',
+        padding: { x: 4, y: 2 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(6)
+      .setVisible(false);
+
+    this.tweens.add({
+      targets: this.consoleGlow,
+      alpha: 0.55,
+      scaleX: 1.18,
+      scaleY: 1.18,
+      duration: 850,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    this.refreshConsoleBeacon();
+  }
+
+  private checkConsoleProximity() {
+    const cx = CONSOLE_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
+    const cy = CONSOLE_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
+    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+    const near = dist < TILE_SIZE * 2.2;
+    this.consolePrompt.setVisible(near);
+  }
+
+  private refreshConsoleBeacon() {
+    const state = this.getState();
+    const hasInsert = state.unlockedCommands.includes('i');
+
+    if (state.bridgeBuilt) {
+      this.consoleGlow.setFillStyle(0x88ccff, 0.14);
+      this.consolePrompt.setText('Bridge active');
+      return;
+    }
+
+    if (hasInsert) {
+      this.consoleGlow.setFillStyle(0x8ad7e8, 0.2);
+      this.consolePrompt.setText('[i] Build bridge');
+      return;
+    }
+
+    this.consoleGlow.setFillStyle(0xa4edf0, 0.16);
+    this.consolePrompt.setText('River Console');
   }
 
   private talkToMentor() {
@@ -500,6 +566,8 @@ export class WorldScene extends Phaser.Scene {
         this.shrineVisits.add(shrine.title);
       }
     }
+
+    this.refreshConsoleBeacon();
   }
 
   // ─── Movement & tile checks ───────────────────────────────────────────────
@@ -541,6 +609,7 @@ export class WorldScene extends Phaser.Scene {
     for (const command of shrine.unlock) { unlocked.add(command); }
 
     this.syncState({ unlockedCommands: Array.from(unlocked), hint: shrine.hint });
+    this.refreshConsoleBeacon();
 
     if (shrine.unlock.length > 0) {
       this.showToast(`${shrine.title}: unlocked ${shrine.unlock.join(' ')}`);
@@ -712,6 +781,7 @@ export class WorldScene extends Phaser.Scene {
           const unlocked = new Set(state.unlockedCommands);
           unlocked.add('i');
           this.syncState({ unlockedCommands: Array.from(unlocked) });
+          this.refreshConsoleBeacon();
         } else {
           this.syncState({
             cratesDestroyed: newCount,
@@ -758,6 +828,7 @@ export class WorldScene extends Phaser.Scene {
       setTileAt(this.tilemapData, col, 12, TILE_IDS.path);
     }
     this.syncState({ bridgeBuilt: true, hint: 'Bridge activated. Cross the river to reach the Wave 1 gate.' });
+    this.refreshConsoleBeacon();
     this.showToast('Insert console activated the bridge');
   }
 
