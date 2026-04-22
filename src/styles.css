@@ -1,7 +1,6 @@
 :root {
   color: #f5f1e5;
-  background:
-    radial-gradient(circle at top, #8fb7ff 0%, #5577d8 32%, #3950b8 56%, #24337b 100%);
+  background: radial-gradient(circle at top, #8fb7ff 0%, #5577d8 32%, #3950b8 56%, #24337b 100%);
   font-family: 'Palatino Linotype', 'Book Antiqua', serif;
 }
 

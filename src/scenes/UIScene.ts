@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH } from '../game/config';
+import { GAME_WIDTH } from '../game/config';
 import { audioManager } from '../game/audio';
 import { COMMAND_REGISTRY, GameState, REGISTRY_KEYS, saveState } from '../game/state';
 
@@ -30,17 +30,11 @@ export class UIScene extends Phaser.Scene {
     this.commandsContainer = this.add.container(120, 54);
 
     this.add.text(32, 108, 'HINT', this.style('#8b7354', 11, 'bold'));
-    this.hintText = this.add
-      .text(78, 105, '', this.style('#56493a', 14))
-      .setWordWrapWidth(GAME_WIDTH - 120);
+    this.hintText = this.add.text(78, 105, '', this.style('#56493a', 14)).setWordWrapWidth(GAME_WIDTH - 120);
 
-    this.add
-      .text(GAME_WIDTH - 20, 58, '■ locked  ■ unlocked', this.style('#907f68', 10))
-      .setOrigin(1, 0);
+    this.add.text(GAME_WIDTH - 20, 58, '■ locked  ■ unlocked', this.style('#907f68', 10)).setOrigin(1, 0);
 
-    this.audioText = this.add
-      .text(GAME_WIDTH - 20, 24, '', this.style('#6b7b82', 12, 'bold'))
-      .setOrigin(1, 0);
+    this.audioText = this.add.text(GAME_WIDTH - 20, 24, '', this.style('#6b7b82', 12, 'bold')).setOrigin(1, 0);
 
     this.input.keyboard?.on('keydown-M', this.onMuteKey);
 
@@ -79,16 +73,19 @@ export class UIScene extends Phaser.Scene {
       const chipW = def.key.length <= 1 ? 28 : 36;
       const chipH = 22;
 
-      const bg = this.add.rectangle(offsetX + chipW / 2, chipH / 2, chipW, chipH, bgColor, 1)
+      const bg = this.add
+        .rectangle(offsetX + chipW / 2, chipH / 2, chipW, chipH, bgColor, 1)
         .setStrokeStyle(1, borderColor, 1);
       this.commandsContainer.add(bg);
 
-      const label = this.add.text(offsetX + chipW / 2, chipH / 2, def.key, {
-        fontFamily: 'Courier New',
-        fontSize: '13px',
-        color: textColor,
-        fontStyle: isUnlocked ? 'bold' : 'normal',
-      }).setOrigin(0.5);
+      const label = this.add
+        .text(offsetX + chipW / 2, chipH / 2, def.key, {
+          fontFamily: 'Courier New',
+          fontSize: '13px',
+          color: textColor,
+          fontStyle: isUnlocked ? 'bold' : 'normal',
+        })
+        .setOrigin(0.5);
       this.commandsContainer.add(label);
 
       offsetX += chipW + 4;

@@ -175,7 +175,12 @@ export class WorldScene extends Phaser.Scene {
     // Path south
     this.add.text(10 * TILE_SIZE, 12 * TILE_SIZE, '▼ Line Shrine: 0 $', signStyle('#52627c'));
     this.add.text(10 * TILE_SIZE, 21 * TILE_SIZE, '► Operator Shrine: x  →', signStyle('#7f4f43'));
-    this.add.text(42 * TILE_SIZE, 15 * TILE_SIZE, '► Break crates with x\n  (3 to unlock the gate)', signStyle('#544637'));
+    this.add.text(
+      42 * TILE_SIZE,
+      15 * TILE_SIZE,
+      '► Break crates with x\n  (3 to unlock the gate)',
+      signStyle('#544637'),
+    );
     this.add.text(21 * TILE_SIZE, 8 * TILE_SIZE, '▼ River Console\n  Press i to build bridge', signStyle('#46616c'));
     this.add.text(27 * TILE_SIZE, 3 * TILE_SIZE, '★ Level 1 Flag ★', {
       fontFamily: 'Palatino Linotype',
@@ -260,9 +265,7 @@ export class WorldScene extends Phaser.Scene {
     const cx = CONSOLE_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
     const cy = CONSOLE_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
 
-    this.consoleGlow = this.add
-      .rectangle(cx, cy, TILE_SIZE + 12, TILE_SIZE + 12, 0x8ad7e8, 0.2)
-      .setDepth(2);
+    this.consoleGlow = this.add.rectangle(cx, cy, TILE_SIZE + 12, TILE_SIZE + 12, 0x8ad7e8, 0.2).setDepth(2);
 
     this.consolePrompt = this.add
       .text(cx, cy - TILE_SIZE * 1.2, '[i] Build bridge', {
@@ -320,10 +323,7 @@ export class WorldScene extends Phaser.Scene {
 
   private talkToMentor() {
     const state = this.getState();
-    const visitIndex = Math.min(
-      this.mentorVisitCount,
-      state.masteryRelicFound ? 2 : 1,
-    );
+    const visitIndex = Math.min(this.mentorVisitCount, state.masteryRelicFound ? 2 : 1);
     const lines = MENTOR_DIALOGUES[visitIndex] ?? MENTOR_DIALOGUES[0];
 
     this.mentorVisitCount++;
@@ -341,9 +341,7 @@ export class WorldScene extends Phaser.Scene {
     const dy = DUNGEON_ENTRANCE_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
 
     // Pulsing glow rectangle behind the entrance tile
-    this.dungeonGlow = this.add
-      .rectangle(dx, dy, TILE_SIZE + 10, TILE_SIZE + 10, 0xc3cbff, 0.45)
-      .setDepth(1);
+    this.dungeonGlow = this.add.rectangle(dx, dy, TILE_SIZE + 10, TILE_SIZE + 10, 0xc3cbff, 0.45).setDepth(1);
 
     this.tweens.add({
       targets: this.dungeonGlow,
@@ -360,9 +358,7 @@ export class WorldScene extends Phaser.Scene {
   private checkDungeonEntrance() {
     if (this.enteringDungeon) return;
     const tile = getTileAt(this.tilemapData, this.player.x, this.player.y);
-    const onEntranceTile =
-      tile.x === DUNGEON_ENTRANCE_POSITION.x &&
-      tile.y === DUNGEON_ENTRANCE_POSITION.y;
+    const onEntranceTile = tile.x === DUNGEON_ENTRANCE_POSITION.x && tile.y === DUNGEON_ENTRANCE_POSITION.y;
 
     if (this.dungeonEntranceLockedUntilExitTile) {
       if (!onEntranceTile) {
@@ -371,9 +367,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    if (
-      onEntranceTile
-    ) {
+    if (onEntranceTile) {
       this.enterDungeon();
     }
   }
@@ -411,26 +405,36 @@ export class WorldScene extends Phaser.Scene {
 
     const container = this.add.container(0, 0).setDepth(50);
 
-    const bg = this.add.rectangle(
-      boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0xf4efe2, 0.97,
-    ).setStrokeStyle(3, 0xd2c8b1, 1);
+    const bg = this.add
+      .rectangle(boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0xf4efe2, 0.97)
+      .setStrokeStyle(3, 0xd2c8b1, 1);
     container.add(bg);
 
     const speakerText = this.add.text(boxX + 16, boxY + 12, `[ ${speaker} ]`, {
-      fontFamily: 'Palatino Linotype', fontSize: '15px', color: '#6b5338', fontStyle: 'bold',
+      fontFamily: 'Palatino Linotype',
+      fontSize: '15px',
+      color: '#6b5338',
+      fontStyle: 'bold',
     });
     container.add(speakerText);
 
     const bodyText = this.add.text(boxX + 16, boxY + 36, lines.join('\n'), {
-      fontFamily: 'Courier New', fontSize: '13px', color: '#4b4238',
-      lineSpacing: 3, wordWrap: { width: boxW - 32 },
+      fontFamily: 'Courier New',
+      fontSize: '13px',
+      color: '#4b4238',
+      lineSpacing: 3,
+      wordWrap: { width: boxW - 32 },
     });
     container.add(bodyText);
 
     this.dialogueBox = container;
 
     this.tweens.add({
-      targets: bg, strokeAlpha: 0.3, duration: 800, yoyo: true, repeat: -1,
+      targets: bg,
+      strokeAlpha: 0.3,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
     });
   }
 
@@ -587,11 +591,17 @@ export class WorldScene extends Phaser.Scene {
     let vx = 0;
     let vy = 0;
 
-    if (this.cursors.h.isDown) { vx = -speed; }
-    else if (this.cursors.l.isDown) { vx = speed; }
+    if (this.cursors.h.isDown) {
+      vx = -speed;
+    } else if (this.cursors.l.isDown) {
+      vx = speed;
+    }
 
-    if (this.cursors.k.isDown) { vy = -speed; }
-    else if (this.cursors.j.isDown) { vy = speed; }
+    if (this.cursors.k.isDown) {
+      vy = -speed;
+    } else if (this.cursors.j.isDown) {
+      vy = speed;
+    }
 
     this.player.setVelocity(vx, vy);
     this.checkShrines();
@@ -615,7 +625,9 @@ export class WorldScene extends Phaser.Scene {
     this.shrineVisits.add(shrine.title);
     const state = this.getState();
     const unlocked = new Set(state.unlockedCommands);
-    for (const command of shrine.unlock) { unlocked.add(command); }
+    for (const command of shrine.unlock) {
+      unlocked.add(command);
+    }
 
     this.syncState({ unlockedCommands: Array.from(unlocked), hint: shrine.hint });
     this.refreshConsoleBeacon();
@@ -653,34 +665,64 @@ export class WorldScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     this.player.setActive(false);
 
-    for (let i = 0; i < 60; i++) { this.spawnConfetti(); }
+    for (let i = 0; i < 60; i++) {
+      this.spawnConfetti();
+    }
 
     const cx = this.cameras.main.scrollX + this.cameras.main.width / 2 / this.cameras.main.zoom;
     const cy = this.cameras.main.scrollY + this.cameras.main.height / 2 / this.cameras.main.zoom;
 
-    const overlay = this.add.rectangle(cx, cy, 520, 260, 0xf4efe2, 0.94)
-      .setDepth(50)
-      .setStrokeStyle(4, 0xd4b66d, 1);
+    const overlay = this.add.rectangle(cx, cy, 520, 260, 0xf4efe2, 0.94).setDepth(50).setStrokeStyle(4, 0xd4b66d, 1);
 
-    this.add.text(cx, cy - 80, '🏆 LEVEL 1 COMPLETE! 🏆', {
-      fontFamily: 'Palatino Linotype', fontSize: '28px', color: '#705628', align: 'center', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(51);
+    this.add
+      .text(cx, cy - 80, '🏆 LEVEL 1 COMPLETE! 🏆', {
+        fontFamily: 'Palatino Linotype',
+        fontSize: '28px',
+        color: '#705628',
+        align: 'center',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
 
-    this.add.text(cx, cy - 30, 'You mastered all cursor commands:', {
-      fontFamily: 'Courier New', fontSize: '16px', color: '#5d4f40', align: 'center',
-    }).setOrigin(0.5).setDepth(51);
+    this.add
+      .text(cx, cy - 30, 'You mastered all cursor commands:', {
+        fontFamily: 'Courier New',
+        fontSize: '16px',
+        color: '#5d4f40',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
 
-    this.add.text(cx, cy + 10, 'h  j  k  l  w  b  0  $  x  i', {
-      fontFamily: 'Courier New', fontSize: '20px', color: '#7e5b2d', align: 'center',
-    }).setOrigin(0.5).setDepth(51);
+    this.add
+      .text(cx, cy + 10, 'h  j  k  l  w  b  0  $  x  i', {
+        fontFamily: 'Courier New',
+        fontSize: '20px',
+        color: '#7e5b2d',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
 
-    this.add.text(cx, cy + 55, 'Press R to play again', {
-      fontFamily: 'Courier New', fontSize: '15px', color: '#8a7e6d', align: 'center',
-    }).setOrigin(0.5).setDepth(51);
+    this.add
+      .text(cx, cy + 55, 'Press R to play again', {
+        fontFamily: 'Courier New',
+        fontSize: '15px',
+        color: '#8a7e6d',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
 
     this.tweens.add({
-      targets: overlay, scaleX: 1.02, scaleY: 1.02,
-      duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      targets: overlay,
+      scaleX: 1.02,
+      scaleY: 1.02,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
     });
   }
 
@@ -690,16 +732,19 @@ export class WorldScene extends Phaser.Scene {
     const px = this.player.x + Phaser.Math.Between(-80, 80);
     const py = this.player.y + Phaser.Math.Between(-60, 20);
 
-    const piece = this.add.rectangle(px, py,
-      Phaser.Math.Between(5, 12), Phaser.Math.Between(5, 12), color,
-    ).setDepth(45).setAngle(Phaser.Math.Between(0, 360));
+    const piece = this.add
+      .rectangle(px, py, Phaser.Math.Between(5, 12), Phaser.Math.Between(5, 12), color)
+      .setDepth(45)
+      .setAngle(Phaser.Math.Between(0, 360));
 
     this.tweens.add({
       targets: piece,
       x: px + Phaser.Math.Between(-120, 120),
       y: py + Phaser.Math.Between(60, 200),
       angle: piece.angle + Phaser.Math.Between(-180, 180),
-      alpha: 0, scaleX: 0.2, scaleY: 0.2,
+      alpha: 0,
+      scaleX: 0.2,
+      scaleY: 0.2,
       duration: Phaser.Math.Between(900, 1800),
       ease: 'Quad.easeOut',
       onComplete: () => piece.destroy(),
@@ -719,9 +764,13 @@ export class WorldScene extends Phaser.Scene {
 
     const markers = MARKER_POINTS;
     const current = tile.x;
-    const target = direction === 1
-      ? markers.find((value) => value > current)
-      : markers.slice().reverse().find((value) => value < current);
+    const target =
+      direction === 1
+        ? markers.find((value) => value > current)
+        : markers
+            .slice()
+            .reverse()
+            .find((value) => value < current);
 
     if (!target) {
       this.syncState({ hint: 'No more markers in that direction.' });
@@ -751,8 +800,11 @@ export class WorldScene extends Phaser.Scene {
     if (!this.hasCommand('x')) return;
 
     const neighbors = [
-      { x: 0, y: 0 }, { x: 1, y: 0 }, { x: -1, y: 0 },
-      { x: 0, y: 1 }, { x: 0, y: -1 },
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
     ];
     const current = getTileAt(this.tilemapData, this.player.x, this.player.y);
 
@@ -767,8 +819,12 @@ export class WorldScene extends Phaser.Scene {
           this.cameras.main.shake(120, 0.006);
           this.tweens.add({
             targets: crateImage,
-            scaleX: 0, scaleY: 0, angle: 45, alpha: 0,
-            duration: 220, ease: 'Back.easeIn',
+            scaleX: 0,
+            scaleY: 0,
+            angle: 45,
+            alpha: 0,
+            duration: 220,
+            ease: 'Back.easeIn',
             onComplete: () => {
               crateImage.setScale(1).setAlpha(1).setAngle(0);
               setTileAt(this.tilemapData, x, y, TILE_IDS.path);
@@ -783,7 +839,8 @@ export class WorldScene extends Phaser.Scene {
 
         if (newCount >= 3) {
           this.syncState({
-            cratesDestroyed: newCount, gateUnlocked: true,
+            cratesDestroyed: newCount,
+            gateUnlocked: true,
             hint: 'All crates destroyed! The gate to Wave 1 is now open. You found the i command!',
           });
           audioManager.playSfx(this, 'unlock');
@@ -849,8 +906,11 @@ export class WorldScene extends Phaser.Scene {
   private setMode(mode: VimMode) {
     this.syncState({ mode });
     audioManager.playSfx(this, 'mode');
-    if (mode === 'insert') { this.player.setTint(0x88ccff); }
-    else { this.player.clearTint(); }
+    if (mode === 'insert') {
+      this.player.setTint(0x88ccff);
+    } else {
+      this.player.clearTint();
+    }
   }
 
   private hasCommand(command: string): boolean {
@@ -873,15 +933,21 @@ export class WorldScene extends Phaser.Scene {
   private showToast(text: string) {
     const toast = this.add
       .text(this.player.x, this.player.y - 42, text, {
-        fontFamily: 'Courier New', fontSize: '14px',
-        color: '#f1fa8c', backgroundColor: '#10211e',
+        fontFamily: 'Courier New',
+        fontSize: '14px',
+        color: '#f1fa8c',
+        backgroundColor: '#10211e',
         padding: { x: 8, y: 4 },
       })
-      .setOrigin(0.5).setDepth(20);
+      .setOrigin(0.5)
+      .setDepth(20);
 
     this.tweens.add({
-      targets: toast, y: toast.y - 24, alpha: 0,
-      duration: 1400, ease: 'Sine.easeOut',
+      targets: toast,
+      y: toast.y - 24,
+      alpha: 0,
+      duration: 1400,
+      ease: 'Sine.easeOut',
       onComplete: () => toast.destroy(),
     });
   }

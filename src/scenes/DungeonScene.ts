@@ -15,16 +15,16 @@
 import Phaser from 'phaser';
 import { audioManager } from '../game/audio';
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from '../game/config';
-import { GameState, REGISTRY_KEYS, VimMode, saveState } from '../game/state';
+import { GameState, REGISTRY_KEYS, saveState } from '../game/state';
 
 // Dungeon tile IDs (local — reuses same texture keys as overworld)
 const D = {
-  wall:   'tile-wall',
-  floor:  'tile-path',
-  water:  'tile-water',
+  wall: 'tile-wall',
+  floor: 'tile-path',
+  water: 'tile-water',
   shrine: 'tile-shrine',
   marker: 'tile-marker',
-  exit:   'tile-console', // re-used as exit glyph
+  exit: 'tile-console', // re-used as exit glyph
 } as const;
 
 const COLS = 25;
@@ -55,16 +55,16 @@ const ROOM_MAPS: number[][][] = [
     // Open floor
     for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++) r[y][x] = 0;
     // Horizontal wall obstacles
-    for (let x = 1; x < 18; x++) r[5][x] = 1;   // barrier row 5
+    for (let x = 1; x < 18; x++) r[5][x] = 1; // barrier row 5
     for (let x = 6; x < COLS - 1; x++) r[10][x] = 1; // barrier row 10
-    for (let x = 1; x < 18; x++) r[15][x] = 1;  // barrier row 15
+    for (let x = 1; x < 18; x++) r[15][x] = 1; // barrier row 15
     // Gaps in barriers (force specific navigation)
-    r[5][19]  = 0; // gap right end
-    r[10][1]  = 0; // gap left end
+    r[5][19] = 0; // gap right end
+    r[10][1] = 0; // gap left end
     r[15][19] = 0; // gap right end
     // Marker checkpoints
     r[3][12] = 3;
-    r[8][12]  = 3;
+    r[8][12] = 3;
     r[13][12] = 3;
     // Altar at top, reached after navigating the right-left-right gaps
     r[2][12] = 2;
@@ -80,8 +80,10 @@ const ROOM_MAPS: number[][][] = [
     r[3][12] = 2;
     // Four pillar walls
     for (let d = 0; d < 2; d++) {
-      r[6][5 + d]  = 1; r[6][18 - d] = 1;
-      r[11][5 + d] = 1; r[11][18 - d] = 1;
+      r[6][5 + d] = 1;
+      r[6][18 - d] = 1;
+      r[11][5 + d] = 1;
+      r[11][18 - d] = 1;
     }
     // Exit portal at bottom
     r[16][12] = 3;
@@ -155,18 +157,15 @@ export class DungeonScene extends Phaser.Scene {
     // Entrance dialogue on first visit
     if (!state.dungeonVisited) {
       this.time.delayedCall(400, () => {
-        this.showDialogue(
-          'Guardian',
-          [
-            'You have entered the Cursor Shrine.',
-            'Only the four directional keys may open the path:',
-            '  h ← left     l → right',
-            '  j ↓ down      k ↑ up',
-            'Navigate to the altar and claim the Movement Relic.',
-            '',
-            '[Press Space or Enter to continue]',
-          ],
-        );
+        this.showDialogue('Guardian', [
+          'You have entered the Cursor Shrine.',
+          'Only the four directional keys may open the path:',
+          '  h ← left     l → right',
+          '  j ↓ down      k ↑ up',
+          'Navigate to the altar and claim the Movement Relic.',
+          '',
+          '[Press Space or Enter to continue]',
+        ]);
       });
       this.syncState({ dungeonVisited: true });
     }
@@ -216,11 +215,16 @@ export class DungeonScene extends Phaser.Scene {
 
   private cellTexture(cell: number): string {
     switch (cell) {
-      case 0: return D.floor;
-      case 1: return D.wall;
-      case 2: return D.shrine;
-      case 3: return D.marker;
-      default: return D.floor;
+      case 0:
+        return D.floor;
+      case 1:
+        return D.wall;
+      case 2:
+        return D.shrine;
+      case 3:
+        return D.marker;
+      default:
+        return D.floor;
     }
   }
 
@@ -259,10 +263,10 @@ export class DungeonScene extends Phaser.Scene {
 
   private createInput() {
     this.cursors = this.input.keyboard!.addKeys({
-      h:   Phaser.Input.Keyboard.KeyCodes.H,
-      j:   Phaser.Input.Keyboard.KeyCodes.J,
-      k:   Phaser.Input.Keyboard.KeyCodes.K,
-      l:   Phaser.Input.Keyboard.KeyCodes.L,
+      h: Phaser.Input.Keyboard.KeyCodes.H,
+      j: Phaser.Input.Keyboard.KeyCodes.J,
+      k: Phaser.Input.Keyboard.KeyCodes.K,
+      l: Phaser.Input.Keyboard.KeyCodes.L,
       esc: Phaser.Input.Keyboard.KeyCodes.ESC,
     }) as { [key: string]: Phaser.Input.Keyboard.Key };
 
@@ -344,7 +348,9 @@ export class DungeonScene extends Phaser.Scene {
     } else if (this.currentRoom === 0) {
       audioManager.playSfx(this, 'warning');
       this.showToast('The true relic lies deeper in the shrine.');
-      this.time.delayedCall(300, () => { this._altarTriggered = false; });
+      this.time.delayedCall(300, () => {
+        this._altarTriggered = false;
+      });
     } else if (this.currentRoom === 1) {
       this.showToast('The path opens deeper into the shrine...');
       this.time.delayedCall(150, () => {
@@ -354,7 +360,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private _markerTriggered = false;
-  private handleMarkerContact(tx: number, ty: number) {
+  private handleMarkerContact(_tx: number, _ty: number) {
     if (this._markerTriggered) return;
     this._markerTriggered = true;
 
@@ -373,7 +379,9 @@ export class DungeonScene extends Phaser.Scene {
       } else {
         this.showToast('Checkpoint — keep navigating!');
       }
-      this.time.delayedCall(600, () => { this._markerTriggered = false; });
+      this.time.delayedCall(600, () => {
+        this._markerTriggered = false;
+      });
     } else if (this.currentRoom === 2) {
       // Exit portal at bottom of altar room — return to overworld
       if (this.relicCollected) {
@@ -382,7 +390,9 @@ export class DungeonScene extends Phaser.Scene {
       } else {
         audioManager.playSfx(this, 'warning');
         this.showToast('Touch the altar first to claim the relic!');
-        this.time.delayedCall(600, () => { this._markerTriggered = false; });
+        this.time.delayedCall(600, () => {
+          this._markerTriggered = false;
+        });
       }
     }
   }
@@ -420,11 +430,13 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private roomHint(room: Room): string {
-    return [
-      'Navigate the entry with h j k l. Reach the lower marker.',
-      'Navigate the maze — find the gaps in each barrier.',
-      'You have reached the altar! Touch the shrine.',
-    ][room] ?? '';
+    return (
+      [
+        'Navigate the entry with h j k l. Reach the lower marker.',
+        'Navigate the maze — find the gaps in each barrier.',
+        'You have reached the altar! Touch the shrine.',
+      ][room] ?? ''
+    );
   }
 
   // ─── Relic collection ─────────────────────────────────────────────────────
@@ -442,7 +454,10 @@ export class DungeonScene extends Phaser.Scene {
     const unlocked = new Set(state.unlockedCommands);
     const granted: string[] = [];
     for (const cmd of ['w', 'b', '0', '$']) {
-      if (!unlocked.has(cmd)) { unlocked.add(cmd); granted.push(cmd); }
+      if (!unlocked.has(cmd)) {
+        unlocked.add(cmd);
+        granted.push(cmd);
+      }
     }
 
     this.syncState({
@@ -451,25 +466,27 @@ export class DungeonScene extends Phaser.Scene {
       hint: 'Movement Mastery Relic claimed! New commands unlocked. Step on the exit portal to leave.',
     });
 
-    const grantText = granted.length > 0
-      ? `New commands unlocked: ${granted.join(' ')}`
-      : 'Your mastery is confirmed.';
+    const grantText = granted.length > 0 ? `New commands unlocked: ${granted.join(' ')}` : 'Your mastery is confirmed.';
 
     this.time.delayedCall(200, () => {
-      this.showDialogue('Altar of Motion', [
-        '★ MOVEMENT MASTERY RELIC ★',
-        '',
-        'You have proven your mastery of the cursor keys.',
-        grantText,
-        '',
-        'The ancient power of h j k l flows through you.',
-        'New paths in the Cursor Meadow will open.',
-        '',
-        '[Press Space or Enter to return to the meadow]',
-      ], () => {
-        // On dialogue close, auto-advance to exit prompt
-        this.advanceRoom(2);
-      });
+      this.showDialogue(
+        'Altar of Motion',
+        [
+          '★ MOVEMENT MASTERY RELIC ★',
+          '',
+          'You have proven your mastery of the cursor keys.',
+          grantText,
+          '',
+          'The ancient power of h j k l flows through you.',
+          'New paths in the Cursor Meadow will open.',
+          '',
+          '[Press Space or Enter to return to the meadow]',
+        ],
+        () => {
+          // On dialogue close, auto-advance to exit prompt
+          this.advanceRoom(2);
+        },
+      );
     });
   }
 
@@ -491,20 +508,26 @@ export class DungeonScene extends Phaser.Scene {
 
     const container = this.add.container(0, 0).setDepth(50).setScrollFactor(0);
 
-    const bg = this.add.rectangle(
-      boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0xf4efe2, 0.96,
-    ).setStrokeStyle(3, 0xd2c8b1, 1);
+    const bg = this.add
+      .rectangle(boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0xf4efe2, 0.96)
+      .setStrokeStyle(3, 0xd2c8b1, 1);
     container.add(bg);
 
     const speakerText = this.add.text(boxX + 16, boxY + 12, `[ ${speaker} ]`, {
-      fontFamily: 'Palatino Linotype', fontSize: '15px', color: '#705628', fontStyle: 'bold',
+      fontFamily: 'Palatino Linotype',
+      fontSize: '15px',
+      color: '#705628',
+      fontStyle: 'bold',
     });
     container.add(speakerText);
 
     const body = lines.join('\n');
     const bodyText = this.add.text(boxX + 16, boxY + 38, body, {
-      fontFamily: 'Courier New', fontSize: '14px', color: '#4b4238',
-      lineSpacing: 4, wordWrap: { width: boxW - 32 },
+      fontFamily: 'Courier New',
+      fontSize: '14px',
+      color: '#4b4238',
+      lineSpacing: 4,
+      wordWrap: { width: boxW - 32 },
     });
     container.add(bodyText);
 
@@ -512,7 +535,11 @@ export class DungeonScene extends Phaser.Scene {
 
     // Pulse border
     this.tweens.add({
-      targets: bg, strokeAlpha: 0.4, duration: 800, yoyo: true, repeat: -1,
+      targets: bg,
+      strokeAlpha: 0.4,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
     });
   }
 
@@ -552,8 +579,10 @@ export class DungeonScene extends Phaser.Scene {
   private showToast(text: string) {
     const toast = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60, text, {
-        fontFamily: 'Courier New', fontSize: '14px',
-        color: '#f1fa8c', backgroundColor: '#10211e',
+        fontFamily: 'Courier New',
+        fontSize: '14px',
+        color: '#f1fa8c',
+        backgroundColor: '#10211e',
         padding: { x: 10, y: 5 },
       })
       .setOrigin(0.5)
@@ -561,8 +590,11 @@ export class DungeonScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     this.tweens.add({
-      targets: toast, y: toast.y - 30, alpha: 0,
-      duration: 1600, ease: 'Sine.easeOut',
+      targets: toast,
+      y: toast.y - 30,
+      alpha: 0,
+      duration: 1600,
+      ease: 'Sine.easeOut',
       onComplete: () => toast.destroy(),
     });
   }
@@ -601,9 +633,7 @@ export class DungeonScene extends Phaser.Scene {
     const dx = offsetX + target.x * TILE_SIZE + TILE_SIZE / 2;
     const dy = offsetY + target.y * TILE_SIZE + TILE_SIZE / 2;
 
-    this.objectiveGlow = this.add
-      .rectangle(dx, dy, TILE_SIZE + 12, TILE_SIZE + 12, 0xffffff, 0.12)
-      .setDepth(1);
+    this.objectiveGlow = this.add.rectangle(dx, dy, TILE_SIZE + 12, TILE_SIZE + 12, 0xffffff, 0.12).setDepth(1);
     this.objectiveGlowTween = this.tweens.add({
       targets: this.objectiveGlow,
       alpha: { from: 0.18, to: 0.45 },

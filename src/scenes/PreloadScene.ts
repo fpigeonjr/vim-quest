@@ -9,11 +9,7 @@ const repeat = (count: number, fn: (index: number) => void) => {
   }
 };
 
-const addTileTexture = (
-  scene: Phaser.Scene,
-  key: string,
-  painter: TilePainter,
-) => {
+const addTileTexture = (scene: Phaser.Scene, key: string, painter: TilePainter) => {
   const graphics = scene.add.graphics();
   painter(graphics);
   graphics.generateTexture(key, TILE_SIZE, TILE_SIZE);

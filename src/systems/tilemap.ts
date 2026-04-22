@@ -14,7 +14,7 @@ export const TILE_IDS = {
   crate: 8,
   flag: 9,
   dungeon: 10, // dungeon entrance portal
-  npc: 11,     // NPC mentor tile (visual only — not blocked)
+  npc: 11, // NPC mentor tile (visual only — not blocked)
 } as const;
 
 export type TileId = (typeof TILE_IDS)[keyof typeof TILE_IDS];
@@ -36,11 +36,7 @@ export const tileTextureMap: Record<number, string> = {
 };
 
 // Tiles that block player movement
-export const BLOCKED_TILES = new Set<number>([
-  TILE_IDS.wall,
-  TILE_IDS.water,
-  TILE_IDS.crate,
-]);
+export const BLOCKED_TILES = new Set<number>([TILE_IDS.wall, TILE_IDS.water, TILE_IDS.crate]);
 
 // Shrine locations from the original overworld.ts
 export const SHRINES = [
@@ -91,11 +87,11 @@ export const NPC_MENTOR_POSITION = { x: 6, y: 6 };
 export const GATE_SHRINE = { x: 40, y: 22 };
 export const GATE_WALL_COL = 41;
 export const GATE_WALL_ROW_START = 13;
-export const GATE_WALL_ROW_END   = 32; // exclusive — rows 13..31
-export const GATE_WALL_TILES = Array.from(
-  { length: GATE_WALL_ROW_END - GATE_WALL_ROW_START },
-  (_, i) => ({ x: GATE_WALL_COL, y: GATE_WALL_ROW_START + i }),
-);
+export const GATE_WALL_ROW_END = 32; // exclusive — rows 13..31
+export const GATE_WALL_TILES = Array.from({ length: GATE_WALL_ROW_END - GATE_WALL_ROW_START }, (_, i) => ({
+  x: GATE_WALL_COL,
+  y: GATE_WALL_ROW_START + i,
+}));
 
 // Level 1 completion flag — placed north of the river, above the bridge.
 // Accessible only after the bridge is built (cols 28-30, river rows 10-12).
@@ -107,11 +103,21 @@ export const FLAG_POSITION = { x: 29, y: 6 };
 // the bridge width so the player can walk straight in from the bridge.
 export const FLAG_ENCLOSURE_WALLS = [
   // Top row: cols 27-31, row 4
-  { x: 27, y: 4 }, { x: 28, y: 4 }, { x: 29, y: 4 }, { x: 30, y: 4 }, { x: 31, y: 4 },
+  { x: 27, y: 4 },
+  { x: 28, y: 4 },
+  { x: 29, y: 4 },
+  { x: 30, y: 4 },
+  { x: 31, y: 4 },
   // Left col: col 27, rows 5-8
-  { x: 27, y: 5 }, { x: 27, y: 6 }, { x: 27, y: 7 }, { x: 27, y: 8 },
+  { x: 27, y: 5 },
+  { x: 27, y: 6 },
+  { x: 27, y: 7 },
+  { x: 27, y: 8 },
   // Right col: col 31, rows 5-8
-  { x: 31, y: 5 }, { x: 31, y: 6 }, { x: 31, y: 7 }, { x: 31, y: 8 },
+  { x: 31, y: 5 },
+  { x: 31, y: 6 },
+  { x: 31, y: 7 },
+  { x: 31, y: 8 },
   // Bottom row corners only — cols 28-30 left open (3-tile entrance matches bridge)
 ];
 
@@ -156,11 +162,7 @@ export function createOverworldTilemap(scene: Phaser.Scene): TilemapData {
       // Create an image for this tile
       const textureKey = tileTextureMap[tileId];
       if (textureKey) {
-        const image = scene.add.image(
-          x * TILE_SIZE + TILE_SIZE / 2,
-          y * TILE_SIZE + TILE_SIZE / 2,
-          textureKey
-        );
+        const image = scene.add.image(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, textureKey);
         image.setDepth(0);
         tileImages.set(`${x},${y}`, image);
 
@@ -172,7 +174,17 @@ export function createOverworldTilemap(scene: Phaser.Scene): TilemapData {
     }
   }
 
-  return { width, height, mapData, blockedTiles, tileImages, colliders, physicsColliders: new Map(), scene, player: null };
+  return {
+    width,
+    height,
+    mapData,
+    blockedTiles,
+    tileImages,
+    colliders,
+    physicsColliders: new Map(),
+    scene,
+    player: null,
+  };
 }
 
 /**
@@ -195,7 +207,7 @@ export function createTileCollisions(
       x * TILE_SIZE + TILE_SIZE / 2,
       y * TILE_SIZE + TILE_SIZE / 2,
       TILE_SIZE,
-      TILE_SIZE
+      TILE_SIZE,
     );
     scene.physics.add.existing(collider, true);
     const physicsCollider = scene.physics.add.collider(player, collider);
@@ -310,13 +322,8 @@ export function getTileAt(
  * Change a tile at specific coordinates
  * This updates both the visual representation and removes collision if needed
  */
-export function setTileAt(
-  tilemapData: TilemapData,
-  x: number,
-  y: number,
-  tileId: number,
-): void {
-  const { mapData, tileImages, colliders, physicsColliders, scene, player } = tilemapData;
+export function setTileAt(tilemapData: TilemapData, x: number, y: number, tileId: number): void {
+  const { mapData, tileImages, colliders, physicsColliders } = tilemapData;
 
   // Update the map data
   if (y >= 0 && y < mapData.length && x >= 0 && x < mapData[0].length) {

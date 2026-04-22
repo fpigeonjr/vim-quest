@@ -82,11 +82,13 @@ export class TitleScene extends Phaser.Scene {
       this.add.image(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE + TILE_SIZE / 2, key).setDepth(2);
     });
 
-    this.add.rectangle(GAME_WIDTH / 2, 150, 520, 92, 0x5d79d8, 0.95)
+    this.add
+      .rectangle(GAME_WIDTH / 2, 150, 520, 92, 0x5d79d8, 0.95)
       .setStrokeStyle(5, 0xe8eefc, 0.9)
       .setDepth(3);
 
-    this.add.rectangle(GAME_WIDTH / 2, 458, 760, 132, 0xf4efe2, 0.94)
+    this.add
+      .rectangle(GAME_WIDTH / 2, 458, 760, 132, 0xf4efe2, 0.94)
       .setStrokeStyle(5, 0xd2c8b1, 1)
       .setDepth(3);
   }

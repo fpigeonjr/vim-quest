@@ -28,18 +28,21 @@ async function shot(page, name, label) {
 
 // Warp player to exact tile
 async function warpTo(page, tx, ty) {
-  await page.evaluate(([x, y, ts]) => {
-    const scene = window.__game?.scene?.getScene('world');
-    if (scene?.player) {
-      scene.player.setPosition(x * ts + ts / 2, y * ts + ts / 2);
-      scene.player.setVelocity(0, 0);
-    }
-  }, [tx, ty, TS]);
+  await page.evaluate(
+    ([x, y, ts]) => {
+      const scene = window.__game?.scene?.getScene('world');
+      if (scene?.player) {
+        scene.player.setPosition(x * ts + ts / 2, y * ts + ts / 2);
+        scene.player.setVelocity(0, 0);
+      }
+    },
+    [tx, ty, TS],
+  );
   await page.waitForTimeout(400);
 }
 
-// Patch game state (partial)
-async function patchState(page, patch) {
+// Patch game state (partial) — kept for debugging
+async function _patchState(page, patch) {
   await page.evaluate((p) => {
     const scene = window.__game?.scene?.getScene('world');
     if (!scene) return;
@@ -63,15 +66,14 @@ async function unlock(page, cmds) {
   await page.waitForTimeout(200);
 }
 
-// Build bridge by calling setTileAt for cols 28-30, rows 10-12
-async function buildBridge(page) {
+// Build bridge by calling setTileAt for cols 28-30, rows 10-12 — kept for debugging
+async function _buildBridge(page) {
   await page.evaluate(() => {
     const scene = window.__game?.scene?.getScene('world');
     if (!scene?.tilemapData) return;
     // Access setTileAt via the module-level function stored on the scene
     // We rebuild the bridge tiles directly on the tilemap data
     const td = scene.tilemapData;
-    const TS = 32;
     const TILE_PATH = 1;
     for (const col of [28, 29, 30]) {
       for (const row of [10, 11, 12]) {
@@ -83,17 +85,23 @@ async function buildBridge(page) {
         // Remove collider if present
         const key = `${col},${row}`;
         const physCol = td.physicsColliders?.get(key);
-        if (physCol) { physCol.destroy(); td.physicsColliders.delete(key); }
+        if (physCol) {
+          physCol.destroy();
+          td.physicsColliders.delete(key);
+        }
         const col2 = td.colliders?.get(key);
-        if (col2) { col2.destroy(); td.colliders.delete(key); }
+        if (col2) {
+          col2.destroy();
+          td.colliders.delete(key);
+        }
       }
     }
   });
   await page.waitForTimeout(400);
 }
 
-// Open the gate wall
-async function openGate(page) {
+// Open the gate wall — kept for debugging
+async function _openGate(page) {
   await page.evaluate(() => {
     const scene = window.__game?.scene?.getScene('world');
     if (!scene?.tilemapData) return;
@@ -106,9 +114,15 @@ async function openGate(page) {
       if (img) img.setTexture('tile-path');
       const key = `${GATE_WALL_COL},${y}`;
       const physCol = td.physicsColliders?.get(key);
-      if (physCol) { physCol.destroy(); td.physicsColliders.delete(key); }
+      if (physCol) {
+        physCol.destroy();
+        td.physicsColliders.delete(key);
+      }
       const col2 = td.colliders?.get(key);
-      if (col2) { col2.destroy(); td.colliders.delete(key); }
+      if (col2) {
+        col2.destroy();
+        td.colliders.delete(key);
+      }
     }
   });
   await page.waitForTimeout(300);

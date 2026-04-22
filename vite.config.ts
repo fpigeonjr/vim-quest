@@ -5,4 +5,10 @@ export default defineConfig({
     host: true,
     port: 8080,
   },
+  test: {
+    environment: 'happy-dom',
+    include: ['src/**/*.test.ts'],
+    clearMocks: true,
+    restoreMocks: true,
+  },
 });

@@ -36,7 +36,6 @@ async function hold(page, key, ms) {
 
 async function waitForScene(page, key, timeoutMs = 8000) {
   const start = Date.now();
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const ok = await page.evaluate((sceneKey) => {
       const game = window.__game;
@@ -51,7 +50,6 @@ async function waitForScene(page, key, timeoutMs = 8000) {
 
 async function waitForGame(page, timeoutMs = 20000) {
   const start = Date.now();
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const ok = await page.evaluate(() => Boolean(window.__game));
     if (ok) return;
@@ -91,41 +89,46 @@ async function startGameFromTitle(page) {
 }
 
 async function warpWorldTo(page, tx, ty) {
-  await page.evaluate(([x, y, ts]) => {
-    const debug = window.__vqDebug;
-    if (debug?.moveToTile?.('world', x, y)) return;
+  await page.evaluate(
+    ([x, y, ts]) => {
+      const debug = window.__vqDebug;
+      if (debug?.moveToTile?.('world', x, y)) return;
 
-    const scene = window.__game?.scene?.getScene('world');
-    if (!scene?.player) throw new Error('world player missing');
-    scene.player.setPosition(x * ts + ts / 2, y * ts + ts / 2);
-    scene.player.setVelocity(0, 0);
-  }, [tx, ty, TS]);
+      const scene = window.__game?.scene?.getScene('world');
+      if (!scene?.player) throw new Error('world player missing');
+      scene.player.setPosition(x * ts + ts / 2, y * ts + ts / 2);
+      scene.player.setVelocity(0, 0);
+    },
+    [tx, ty, TS],
+  );
   await page.waitForTimeout(250);
 }
 
 async function warpDungeonTo(page, tx, ty) {
-  await page.evaluate(([x, y, ts]) => {
-    const debug = window.__vqDebug;
-    if (debug?.moveToTile?.('dungeon', x, y)) return;
+  await page.evaluate(
+    ([x, y, ts]) => {
+      const debug = window.__vqDebug;
+      if (debug?.moveToTile?.('dungeon', x, y)) return;
 
-    const scene = window.__game?.scene?.getScene('dungeon');
-    if (!scene?.player) throw new Error('dungeon player missing');
-    // dungeon tiles are offset; compute same way as DungeonScene
-    const GAME_WIDTH = 1280;
-    const GAME_HEIGHT = 720;
-    const COLS = 25;
-    const ROWS = 20;
-    const offsetX = (GAME_WIDTH - COLS * ts) / 2;
-    const offsetY = (GAME_HEIGHT - ROWS * ts) / 2 + 20;
-    scene.player.setPosition(offsetX + x * ts + ts / 2, offsetY + y * ts + ts / 2);
-    scene.player.setVelocity(0, 0);
-  }, [tx, ty, TS]);
+      const scene = window.__game?.scene?.getScene('dungeon');
+      if (!scene?.player) throw new Error('dungeon player missing');
+      // dungeon tiles are offset; compute same way as DungeonScene
+      const GAME_WIDTH = 1280;
+      const GAME_HEIGHT = 720;
+      const COLS = 25;
+      const ROWS = 20;
+      const offsetX = (GAME_WIDTH - COLS * ts) / 2;
+      const offsetY = (GAME_HEIGHT - ROWS * ts) / 2 + 20;
+      scene.player.setPosition(offsetX + x * ts + ts / 2, offsetY + y * ts + ts / 2);
+      scene.player.setVelocity(0, 0);
+    },
+    [tx, ty, TS],
+  );
   await page.waitForTimeout(250);
 }
 
 async function clearDungeonDialogue(page, timeoutMs = 6000) {
   const start = Date.now();
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const active = await page.evaluate(() => {
       const scene = window.__game?.scene?.getScene('dungeon');
