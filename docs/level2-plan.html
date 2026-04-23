@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vim Quest - Level 2 Plan (Word Woods)</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-2: #111827;
+      --panel: #1f2937;
+      --border: #334155;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #22c55e;
+      --accent-2: #14b8a6;
+      --gold: #eab308;
+      --warn: #fb923c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+      background:
+        radial-gradient(circle at 20% 0%, #1d4d35 0%, transparent 40%),
+        radial-gradient(circle at 80% 100%, #0f766e 0%, transparent 35%),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
+      line-height: 1.4;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .header {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    h1, h2, h3 { margin: 0 0 10px; }
+    h1 { color: var(--accent); font-size: 30px; }
+    h2 { color: var(--gold); font-size: 20px; margin-top: 22px; }
+    h3 { color: var(--accent-2); font-size: 16px; margin-top: 14px; }
+
+    .meta { color: var(--muted); font-size: 14px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .chip {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .panel {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border-bottom: 1px solid rgba(51, 65, 85, 0.7);
+      padding: 9px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { color: var(--gold); font-weight: 700; }
+    td code {
+      background: rgba(2, 6, 23, 0.8);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+
+    .small { color: var(--muted); font-size: 13px; }
+    .warn { color: var(--warn); }
+    .ok { color: var(--accent); }
+    .map-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      display: inline-block;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+    }
+    ul { margin: 8px 0 0 20px; padding: 0; }
+    li { margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="header">
+      <h1>Level 2 Plan - Word Woods</h1>
+      <div class="meta">Draft for review - April 22, 2026</div>
+      <div class="chips">
+        <span class="chip">Scope: Zone 2 only</span>
+        <span class="chip">Core commands: <code>w</code> <code>b</code> <code>e</code></span>
+        <span class="chip">Reinforcement: <code>0</code> <code>$</code> (from Zone 1)</span>
+        <span class="chip">Side quests: 3 optional</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Spec Alignment (docs/spec.md)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Spec Requirement</th>
+            <th>Word Woods Plan Response</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Zone 2 teaches <code>w b e</code></td>
+            <td>Critical path introduces <code>w</code>, tests <code>b</code> recovery, unlocks <code>e</code> at mid-zone shrine, then mixes all three in mastery.</td>
+          </tr>
+          <tr>
+            <td>Traversal on word-based stones / branches</td>
+            <td>All major lanes are branching word pads with fail-safe reset loops and visible target tokens.</td>
+          </tr>
+          <tr>
+            <td>Optional puzzles reward precise word targeting</td>
+            <td>Three optional side quests focus on precision endpoints, backtracking, and efficient command routing.</td>
+          </tr>
+          <tr>
+            <td>Region format: tutorial, practice, puzzle rooms, optional challenge, mini-dungeon/shrine, mastery gate</td>
+            <td>Map zones A-G implement each element in order and include a final Sentence Gate trial.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Full Zone 2 Map Blueprint</h2>
+      <p class="small">Tile space: <code>96 x 56</code>. Entry from west edge at <code>(2, 28)</code> after Zone 1 transition. Coordinates below define the entire planned playable Level 2 area.</p>
+      <div class="map-wrap">
+        <svg width="1120" height="560" viewBox="0 0 1120 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Word Woods full map plan">
+          <rect x="0" y="0" width="1120" height="560" fill="#0b1220"/>
+          <text x="18" y="24" fill="#94a3b8" font-size="14" font-family="monospace">Word Woods - Whole Map (A-G zones)</text>
+
+          <rect x="30" y="220" width="150" height="120" fill="#1e293b" stroke="#64748b" />
+          <text x="40" y="244" fill="#eab308" font-size="14" font-family="monospace">A. Arrival Clearing</text>
+          <text x="40" y="264" fill="#e5e7eb" font-size="12" font-family="monospace">(2-14, 22-34)</text>
+
+          <rect x="180" y="230" width="240" height="100" fill="#14532d" stroke="#86efac" />
+          <text x="190" y="254" fill="#e5e7eb" font-size="14" font-family="monospace">B. Tutorial Lane (w/b)</text>
+          <text x="190" y="274" fill="#d1fae5" font-size="12" font-family="monospace">(14-34, 24-32)</text>
+
+          <rect x="420" y="120" width="320" height="90" fill="#134e4a" stroke="#5eead4" />
+          <text x="430" y="145" fill="#e5e7eb" font-size="14" font-family="monospace">C1. North Canopy (forward w chains)</text>
+          <text x="430" y="165" fill="#ccfbf1" font-size="12" font-family="monospace">(34-62, 14-24)</text>
+
+          <rect x="420" y="340" width="320" height="90" fill="#3f6212" stroke="#bef264" />
+          <text x="430" y="365" fill="#e5e7eb" font-size="14" font-family="monospace">C2. Root Backtrack (b recovery loops)</text>
+          <text x="430" y="385" fill="#ecfccb" font-size="12" font-family="monospace">(34-62, 32-42)</text>
+
+          <rect x="740" y="220" width="160" height="120" fill="#1d4ed8" stroke="#93c5fd" />
+          <text x="750" y="244" fill="#e5e7eb" font-size="14" font-family="monospace">D. Echo Arbor</text>
+          <text x="750" y="264" fill="#dbeafe" font-size="12" font-family="monospace">Unlock shrine: e</text>
+          <text x="750" y="282" fill="#dbeafe" font-size="12" font-family="monospace">(62-74, 22-34)</text>
+
+          <rect x="900" y="110" width="160" height="330" fill="#4c1d95" stroke="#c4b5fd" />
+          <text x="910" y="134" fill="#ede9fe" font-size="14" font-family="monospace">E. Precision Terraces</text>
+          <text x="910" y="154" fill="#ede9fe" font-size="12" font-family="monospace">w/b/e + 0/$ mixed lanes</text>
+          <text x="910" y="172" fill="#ede9fe" font-size="12" font-family="monospace">(74-90, 14-42)</text>
+
+          <rect x="1060" y="220" width="50" height="120" fill="#7f1d1d" stroke="#fca5a5" />
+          <text x="1062" y="248" fill="#fee2e2" font-size="12" font-family="monospace">F</text>
+          <text x="1062" y="264" fill="#fee2e2" font-size="11" font-family="monospace">Shrine</text>
+
+          <line x1="180" y1="280" x2="420" y2="280" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 6" />
+          <line x1="420" y1="280" x2="420" y2="165" stroke="#94a3b8" stroke-width="2" />
+          <line x1="420" y1="280" x2="420" y2="385" stroke="#94a3b8" stroke-width="2" />
+          <line x1="740" y1="280" x2="900" y2="280" stroke="#94a3b8" stroke-width="2" />
+          <line x1="1060" y1="280" x2="1110" y2="280" stroke="#fca5a5" stroke-width="3" />
+
+          <circle cx="520" cy="110" r="9" fill="#f59e0b" />
+          <text x="535" y="114" fill="#fef3c7" font-size="11" font-family="monospace">SQ1</text>
+          <circle cx="590" cy="450" r="9" fill="#f59e0b" />
+          <text x="605" y="454" fill="#fef3c7" font-size="11" font-family="monospace">SQ2</text>
+          <circle cx="970" cy="460" r="9" fill="#f59e0b" />
+          <text x="985" y="464" fill="#fef3c7" font-size="11" font-family="monospace">SQ3</text>
+
+          <text x="1040" y="205" fill="#fca5a5" font-size="12" font-family="monospace">G. Sentence Gate</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:#14532d"></i> Tutorial lane</span>
+        <span><i class="dot" style="background:#134e4a"></i> Forward branch practice</span>
+        <span><i class="dot" style="background:#3f6212"></i> Reverse branch practice</span>
+        <span><i class="dot" style="background:#1d4ed8"></i> Mid-zone unlock shrine</span>
+        <span><i class="dot" style="background:#4c1d95"></i> Mixed precision puzzle zone</span>
+        <span><i class="dot" style="background:#7f1d1d"></i> Mini-shrine + mastery gate exit</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Map Regions and Puzzle Beats</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Zone</th>
+            <th>Bounds (x,y)</th>
+            <th>Primary Teaching Beat</th>
+            <th>Gating Rule</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A. Arrival Clearing</td>
+            <td><code>x:2-14, y:22-34</code></td>
+            <td>Reorient from Zone 1, remind <code>0</code>/<code>$</code> anchors are still available.</td>
+            <td>No lock; checkpoint + hint obelisk.</td>
+          </tr>
+          <tr>
+            <td>B. Tutorial Lane</td>
+            <td><code>x:14-34, y:24-32</code></td>
+            <td>Short safe loops introducing <code>w</code> forward and <code>b</code> correction.</td>
+            <td>Must clear 3 marker pads to open split branches.</td>
+          </tr>
+          <tr>
+            <td>C1. North Canopy</td>
+            <td><code>x:34-62, y:14-24</code></td>
+            <td>Long forward jumps; punish mashing with dead-branch landings.</td>
+            <td>Collect canopy token.</td>
+          </tr>
+          <tr>
+            <td>C2. Root Backtrack</td>
+            <td><code>x:34-62, y:32-42</code></td>
+            <td>Intentional overshoot, then recover with <code>b</code>.</td>
+            <td>Collect root token.</td>
+          </tr>
+          <tr>
+            <td>D. Echo Arbor Shrine</td>
+            <td><code>x:62-74, y:22-34</code></td>
+            <td>Unlock <code>e</code>; micro test requires landing on word ends.</td>
+            <td>Both branch tokens required.</td>
+          </tr>
+          <tr>
+            <td>E. Precision Terraces</td>
+            <td><code>x:74-90, y:14-42</code></td>
+            <td>Mixed lanes combining <code>w b e</code> and occasional <code>0/$</code> reset rails.</td>
+            <td>Clear 4 terrace runes to open mini-shrine.</td>
+          </tr>
+          <tr>
+            <td>F/G. Lexeme Shrine + Sentence Gate</td>
+            <td><code>x:90-96, y:22-34</code></td>
+            <td>Final sequence validates command fluency under light pressure.</td>
+            <td>Zone completion unlock + route back to hub.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Side Quests (Optional)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Quest</th>
+            <th>Location</th>
+            <th>Commands Trained</th>
+            <th>Reward</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>SQ1: Lost Lexicon Pages</strong></td>
+            <td>North canopy hidden spurs</td>
+            <td><code>w</code> for reach, <code>b</code> to return from dead ends</td>
+            <td>Lore pages + passive hint marker on failed jumps.</td>
+          </tr>
+          <tr>
+            <td><strong>SQ2: Echo Seed Time Trial</strong></td>
+            <td>South root loop</td>
+            <td><code>w</code>/<code>e</code> cadence with strict endpoint timing</td>
+            <td>Unlocks a one-way shortcut vine from zone end to zone start.</td>
+          </tr>
+          <tr>
+            <td><strong>SQ3: Caret Cartographer</strong></td>
+            <td>Precision terraces</td>
+            <td>Mixed route with <code>w b e 0 $</code> in max command budget</td>
+            <td>Mastery badge + bonus practice room access.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small"><span class="warn">Design constraint:</span> side quests cannot gate the main path; they only add mastery rewards and optional shortcuts.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Learning Objectives and Assessment</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Objective</th>
+            <th>Assessment Signal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>LO-2.1</td>
+            <td>Use <code>w</code> to advance to intended word starts without fallback movement keys.</td>
+            <td>In B and C1, clear 3 consecutive pads with <code>w</code>-only input.</td>
+          </tr>
+          <tr>
+            <td>LO-2.2</td>
+            <td>Use <code>b</code> to recover from overshoot and re-align to target paths.</td>
+            <td>In C2, recover from forced overshoot in <=2 commands, 3 times.</td>
+          </tr>
+          <tr>
+            <td>LO-2.3</td>
+            <td>Use <code>e</code> to land on exact word ends for narrow platforms.</td>
+            <td>D unlock test requires 4 correct endpoint landings with <code>e</code>.</td>
+          </tr>
+          <tr>
+            <td>LO-2.4</td>
+            <td>Choose between <code>w</code>, <code>b</code>, and <code>e</code> based on target position.</td>
+            <td>E terraces complete with <=6 invalid commands across all runes.</td>
+          </tr>
+          <tr>
+            <td>LO-2.5</td>
+            <td>Reinforce prior anchors <code>0</code>/<code>$</code> as fast reposition tools.</td>
+            <td>At least 2 mandatory terrace rails require <code>0</code> or <code>$</code> use.</td>
+          </tr>
+          <tr>
+            <td>LO-2.6</td>
+            <td>Demonstrate fluency in a full route under mild pressure.</td>
+            <td>Sentence Gate clear in one attempt window with checkpoint rollback support.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Issue-Ready Story Slices (Post-Approval)</h2>
+      <ul>
+        <li><span class="ok">Story 1:</span> Author Zone 2 map layout data (A-G regions + collision + transition links).</li>
+        <li><span class="ok">Story 2:</span> Implement tutorial and branch token gates (B, C1, C2, D unlock).</li>
+        <li><span class="ok">Story 3:</span> Add <code>e</code> unlock shrine sequence and HUD/feedback integration.</li>
+        <li><span class="ok">Story 4:</span> Build precision terraces and Sentence Gate mastery flow (E-F-G).</li>
+        <li><span class="ok">Story 5:</span> Implement SQ1-SQ3 side quest scripting and non-blocking rewards.</li>
+        <li><span class="ok">Story 6:</span> Add telemetry hooks for LO-2.1 to LO-2.6 pass/fail metrics.</li>
+        <li><span class="ok">Story 7:</span> Add scripted playthrough for Zone 2 and generate regression report in <code>docs/test-reports/</code>.</li>
+      </ul>
+      <p class="small">Once this plan is approved, these become GitHub Issues with acceptance criteria copied from map/gating/objective tables.</p>
+    </section>
+  </div>
+</body>
+</html>

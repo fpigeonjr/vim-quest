@@ -14,6 +14,10 @@ export class Zone2Scene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private cursors!: { [key: string]: Phaser.Input.Keyboard.Key };
   private colliderGroup!: Phaser.Physics.Arcade.StaticGroup;
+  private markerPads: Phaser.GameObjects.Sprite[] = [];
+  private branchTokens: Phaser.GameObjects.Sprite[] = [];
+  private zoneGates: Phaser.Physics.Arcade.Sprite[] = [];
+  private lockFeedbackText?: Phaser.GameObjects.Text;
 
   constructor() {
     super('zone2');
@@ -26,6 +30,7 @@ export class Zone2Scene extends Phaser.Scene {
     this.createInput();
     this.addRegionLabels();
     this.addHudBanner();
+    this.renderInteractiveElements();
 
     this.syncState({
       mode: 'normal',
@@ -40,6 +45,9 @@ export class Zone2Scene extends Phaser.Scene {
       return;
     }
     this.handleMovement();
+    this.checkMarkerPadOverlap();
+    this.checkBranchTokenOverlap();
+    this.checkZoneGateCollisions();
   }
 
   private buildZone2Map() {
@@ -234,5 +242,310 @@ export class Zone2Scene extends Phaser.Scene {
     const nextState = { ...this.getState(), ...patch };
     this.registry.set(REGISTRY_KEYS.state, nextState);
     saveState(nextState);
+  }
+
+  // ─── Interactive Elements ───────────────────────────────────────────────────
+
+  private renderInteractiveElements() {
+    this.renderMarkerPads();
+    this.renderBranchTokens();
+    this.createZoneGates();
+    this.createLockFeedback();
+  }
+
+  private renderMarkerPads() {
+    const state = this.getState();
+    
+    for (const pad of ZONE2_WORD_WOODS_LAYOUT.markerPads) {
+      const wx = pad.tile.x * TILE_SIZE + TILE_SIZE / 2;
+      const wy = pad.tile.y * TILE_SIZE + TILE_SIZE / 2;
+      
+      // Check if this pad should already be cleared based on state
+      const isCleared = state.zone2TutorialPadsCleared >= this.getPadIndex(pad.id) + 1;
+      
+      // Create sprite - using marker tile for now, could be custom texture
+      const sprite = this.add.sprite(wx, wy, 'tile-marker');
+      sprite.setDepth(5);
+      
+      // Add glow effect if cleared
+      if (isCleared) {
+        sprite.setTint(0x88ff88);
+      } else {
+        sprite.setTint(0xffffff);
+      }
+      
+      this.markerPads.push(sprite);
+    }
+  }
+
+  private renderBranchTokens() {
+    const state = this.getState();
+    
+    for (const token of ZONE2_WORD_WOODS_LAYOUT.branchTokens) {
+      // Skip if already collected
+      if ((token.kind === 'canopy' && state.hasCanopyToken) ||
+          (token.kind === 'root' && state.hasRootToken)) {
+        continue;
+      }
+      
+      const wx = token.tile.x * TILE_SIZE + TILE_SIZE / 2;
+      const wy = token.tile.y * TILE_SIZE + TILE_SIZE / 2;
+      
+      // Create token sprite
+      const sprite = this.add.sprite(wx, wy, token.kind === 'canopy' ? 'tile-shrine' : 'tile-bridge');
+      sprite.setTint(token.kind === 'canopy' ? 0x88aaff : 0xffaa88);
+      sprite.setDepth(10);
+      
+      // Make it interactive
+      sprite.setInteractive();
+      this.physics.add.existing(sprite, false);
+      
+      this.branchTokens.push(sprite);
+    }
+  }
+
+  private createZoneGates() {
+    // Gate between B and C1 (north branch)
+    const gateBtoC1 = this.createGateSprite(34, 20, 'B→C1 Gate');
+    
+    // Gate between B and C2 (south branch)  
+    const gateBtoC2 = this.createGateSprite(34, 36, 'B→C2 Gate');
+    
+    // Gate to D (requires both tokens)
+    const gateToD = this.createGateSprite(62, 28, 'D Gate');
+    
+    this.zoneGates.push(gateBtoC1, gateBtoC2, gateToD);
+  }
+
+  private createGateSprite(xTile: number, yTile: number, label: string): Phaser.Physics.Arcade.Sprite {
+    const wx = xTile * TILE_SIZE + TILE_SIZE / 2;
+    const wy = yTile * TILE_SIZE + TILE_SIZE / 2;
+    
+    const sprite = this.physics.add.sprite(wx, wy, 'tile-wall');
+    sprite.setTint(0xff5555);
+    sprite.setAlpha(0.7);
+    sprite.setDepth(15);
+    sprite.setImmovable(true);
+    
+    // Add label
+    this.add.text(wx, wy - 20, label, {
+      fontFamily: 'Courier New',
+      fontSize: '10px',
+      color: '#ffaaaa',
+      backgroundColor: '#552222',
+      padding: { x: 4, y: 2 },
+    }).setOrigin(0.5).setDepth(16);
+    
+    return sprite;
+  }
+
+  private createLockFeedback() {
+    this.lockFeedbackText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 60, '', {
+      fontFamily: 'Courier New',
+      fontSize: '14px',
+      color: '#ffaaaa',
+      backgroundColor: '#552222',
+      padding: { x: 10, y: 6 },
+    })
+    .setOrigin(0.5)
+    .setScrollFactor(0)
+    .setDepth(50)
+    .setAlpha(0);
+  }
+
+  private getPadIndex(padId: string): number {
+    const pads = ZONE2_WORD_WOODS_LAYOUT.markerPads;
+    return pads.findIndex(p => p.id === padId);
+  }
+
+  private checkMarkerPadOverlap() {
+    const state = this.getState();
+    const padsCleared = state.zone2TutorialPadsCleared;
+    
+    for (let i = 0; i < this.markerPads.length; i++) {
+      const sprite = this.markerPads[i];
+      const pad = ZONE2_WORD_WOODS_LAYOUT.markerPads[i];
+      
+      // Skip if already cleared beyond this pad
+      if (padsCleared > i) continue;
+      
+      // Check overlap with player
+      if (this.physics.overlap(this.player, sprite)) {
+        // Mark this pad as cleared
+        this.syncState({ zone2TutorialPadsCleared: padsCleared + 1 });
+        
+        // Visual feedback
+        sprite.setTint(0x88ff88);
+        
+        // Particle effect
+        this.createClearedEffect(sprite.x, sprite.y);
+        
+        // Check if all pads are cleared
+        if (padsCleared + 1 === ZONE2_WORD_WOODS_LAYOUT.markerPads.length) {
+          this.showFeedback('Tutorial Lane cleared! Branches are now open.');
+          this.updateGates();
+        } else {
+          this.showFeedback(`Marker pad ${padsCleared + 1}/3 cleared`);
+        }
+        
+        break;
+      }
+    }
+  }
+
+  private checkBranchTokenOverlap() {
+    const state = this.getState();
+    
+    for (let i = this.branchTokens.length - 1; i >= 0; i--) {
+      const sprite = this.branchTokens[i];
+      const token = ZONE2_WORD_WOODS_LAYOUT.branchTokens[i];
+      
+      if (this.physics.overlap(this.player, sprite)) {
+        // Collect token
+        const update: Partial<GameState> = {};
+        if (token.kind === 'canopy') {
+          update.hasCanopyToken = true;
+          this.showFeedback('Canopy token collected!');
+        } else {
+          update.hasRootToken = true;
+          this.showFeedback('Root token collected!');
+        }
+        this.syncState(update);
+        
+        // Visual effects
+        this.createTokenCollectionEffect(sprite.x, sprite.y, token.kind);
+        sprite.destroy();
+        this.branchTokens.splice(i, 1);
+        
+        // Check if both tokens are collected
+        if (state.hasCanopyToken && state.hasRootToken) {
+          this.showFeedback('Both branch tokens collected! Echo Arbor is now accessible.');
+          this.updateGates();
+        }
+        
+        break;
+      }
+    }
+  }
+
+  private checkZoneGateCollisions() {
+    const state = this.getState();
+    
+    for (const gate of this.zoneGates) {
+      if (this.physics.collide(this.player, gate)) {
+        // Determine which gate we're colliding with
+        const gateIndex = this.zoneGates.indexOf(gate);
+        
+        if (gateIndex === 0 || gateIndex === 1) {
+          // B→C1 or B→C2 gate
+          if (state.zone2TutorialPadsCleared < ZONE2_WORD_WOODS_LAYOUT.markerPads.length) {
+            this.showFeedback('Clear all 3 marker pads in Tutorial Lane first!', true);
+            this.bouncePlayerFromGate(gate);
+          }
+        } else if (gateIndex === 2) {
+          // D gate
+          if (!state.hasCanopyToken || !state.hasRootToken) {
+            const missing = [];
+            if (!state.hasCanopyToken) missing.push('canopy token');
+            if (!state.hasRootToken) missing.push('root token');
+            this.showFeedback(`Need ${missing.join(' and ')} to enter Echo Arbor!`, true);
+            this.bouncePlayerFromGate(gate);
+          }
+        }
+      }
+    }
+  }
+
+  private updateGates() {
+    const state = this.getState();
+    
+    // Update B→C1 and B→C2 gates
+    if (state.zone2TutorialPadsCleared >= ZONE2_WORD_WOODS_LAYOUT.markerPads.length) {
+      // Open branch gates
+      for (let i = 0; i < 2; i++) {
+        if (this.zoneGates[i]?.body) {
+          this.zoneGates[i]!.setAlpha(0.3);
+          this.zoneGates[i]!.setTint(0x55ff55);
+          this.zoneGates[i]!.body!.enable = false;
+        }
+      }
+    }
+    
+    // Update D gate
+    if (state.hasCanopyToken && state.hasRootToken) {
+      if (this.zoneGates[2]?.body) {
+        this.zoneGates[2]!.setAlpha(0.3);
+        this.zoneGates[2]!.setTint(0x55ff55);
+        this.zoneGates[2]!.body!.enable = false;
+      }
+    }
+  }
+
+  private bouncePlayerFromGate(gate: Phaser.Physics.Arcade.Sprite) {
+    // Simple bounce effect
+    const dx = this.player.x - gate.x;
+    const dy = this.player.y - gate.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance > 0) {
+      const force = 200;
+      this.player.setVelocity(
+        (dx / distance) * force,
+        (dy / distance) * force
+      );
+    }
+  }
+
+  private showFeedback(message: string, isWarning = false) {
+    if (!this.lockFeedbackText) return;
+    
+    this.lockFeedbackText.setText(message);
+    this.lockFeedbackText.setStyle({
+      color: isWarning ? '#ffaaaa' : '#aaffaa',
+      backgroundColor: isWarning ? '#552222' : '#225522',
+    });
+    
+    // Fade in/out animation
+    this.tweens.add({
+      targets: this.lockFeedbackText,
+      alpha: 1,
+      duration: 200,
+      yoyo: true,
+      hold: 2000,
+      onComplete: () => {
+        this.lockFeedbackText?.setAlpha(0);
+      }
+    });
+  }
+
+  private createClearedEffect(x: number, y: number) {
+    // Simple particle effect for pad clearing
+    const particles = this.add.particles(x, y, 'tile-marker', {
+      quantity: 5,
+      lifespan: 1000,
+      speed: { min: 30, max: 60 },
+      scale: { start: 0.8, end: 0.1 },
+      alpha: { start: 1, end: 0 },
+      tint: 0x88ff88,
+      gravityY: -100,
+    });
+    
+    particles.explode();
+  }
+
+  private createTokenCollectionEffect(x: number, y: number, kind: 'canopy' | 'root') {
+    const tint = kind === 'canopy' ? 0x88aaff : 0xffaa88;
+    const textureKey = kind === 'canopy' ? 'tile-shrine' : 'tile-bridge';
+    const particles = this.add.particles(x, y, textureKey, {
+      quantity: 10,
+      lifespan: 1500,
+      speed: { min: 40, max: 80 },
+      scale: { start: 1.0, end: 0.1 },
+      alpha: { start: 1, end: 0 },
+      tint: tint,
+      gravityY: -50,
+    });
+    
+    particles.explode();
   }
 }

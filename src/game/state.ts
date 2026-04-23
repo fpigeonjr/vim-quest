@@ -14,6 +14,10 @@ export type GameState = {
   mentorMet: boolean;
   introSeen: boolean;
   audioMuted: boolean;
+  // Zone 2 tracking
+  zone2TutorialPadsCleared: number;
+  hasCanopyToken: boolean;
+  hasRootToken: boolean;
 };
 
 export const defaultGameState = (): GameState => ({
@@ -31,6 +35,10 @@ export const defaultGameState = (): GameState => ({
   mentorMet: false,
   introSeen: false,
   audioMuted: false,
+  // Zone 2 defaults
+  zone2TutorialPadsCleared: 0,
+  hasCanopyToken: false,
+  hasRootToken: false,
 });
 
 // Full command registry — defines every command's display label and unlock tier

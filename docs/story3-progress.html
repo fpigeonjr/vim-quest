@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Story #3 Progress: Tutorial + Branch Token Gating</title>
+  <style>
+    :root {
+      --bg: #1e1e2e;
+      --bg-light: #2a2a3e;
+      --text: #cdd6f4;
+      --text-muted: #a6adc8;
+      --accent: #89b4fa;
+      --accent-2: #cba6f7;
+      --success: #a6e3a1;
+      --warning: #f9e2af;
+      --error: #f38ba8;
+      --border: #45475a;
+    }
+    
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      background: var(--bg-light);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    h1, h2, h3, h4 { margin: 0 0 16px; }
+    h1 { color: var(--accent); font-size: 32px; }
+    h2 { color: var(--accent-2); font-size: 24px; margin-top: 28px; }
+    h3 { color: var(--success); font-size: 18px; }
+    
+    .meta {
+      display: flex;
+      gap: 16px;
+      margin: 16px 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    
+    .status-chip {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    
+    .status-chip.draft { background: #313244; color: var(--warning); border: 1px solid var(--warning); }
+    .status-chip.in-progress { background: #313244; color: var(--accent); border: 1px solid var(--accent); }
+    .status-chip.done { background: #313244; color: var(--success); border: 1px solid var(--success); }
+    
+    .card {
+      background: var(--bg-light);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .acceptance-criteria {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    
+    .criteria-item {
+      background: rgba(30, 30, 46, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    
+    .criteria-item h4 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+    
+    .criteria-item .status {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #45475a;
+    }
+    
+    .progress-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.3s ease;
+    }
+    
+    .screenshot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    
+    .screenshot {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #11111b;
+    }
+    
+    .screenshot img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    
+    .screenshot-caption {
+      padding: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .code-block {
+      background: #11111b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+    
+    .log {
+      background: #11111b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .log-entry {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(69, 71, 90, 0.3);
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 12px;
+    }
+    
+    .log-entry.timestamp { color: var(--text-muted); font-size: 11px; }
+    .log-entry.info { color: var(--accent); }
+    .log-entry.success { color: var(--success); }
+    .log-entry.warning { color: var(--warning); }
+    .log-entry.error { color: var(--error); }
+    
+    .next-steps ul {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+    
+    .next-steps li {
+      margin: 8px 0;
+    }
+    
+    .validation {
+      background: rgba(166, 227, 161, 0.1);
+      border: 1px solid var(--success);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+    }
+    
+    button {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    
+    button:hover { opacity: 0.9; }
+    
+    .timestamp { color: var(--text-muted); font-size: 13px; }
+    
+    @media (max-width: 768px) {
+      .acceptance-criteria { grid-template-columns: 1fr; }
+      .screenshot-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Story #3: Tutorial + Branch Token Gating</h1>
+      <div class="meta">
+        <span>Issue: #3</span>
+        <span>Status: <span class="status-chip in-progress">In Progress</span></span>
+        <span>Started: <span class="timestamp">2026-04-23</span></span>
+      </div>
+      <p>Implement tutorial lane completion gate and branch token system for Zone 2 Word Woods.</p>
+      
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: 0%" id="progressFill"></div>
+      </div>
+      <div style="text-align: center; font-size: 14px; color: var(--text-muted);" id="progressText">0% complete</div>
+    </header>
+
+    <section class="card">
+      <h2>Acceptance Criteria</h2>
+      <div class="acceptance-criteria" id="acceptanceCriteria">
+        <!-- Will be populated by JavaScript -->
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Implementation Plan</h2>
+      <div class="next-steps">
+        <ol>
+          <li>Extend GameState for Zone 2 progress tracking</li>
+          <li>Create interactive marker pads in Tutorial Lane (B)</li>
+          <li>Implement pad clearing mechanics with visual feedback</li>
+          <li>Add gate colliders between B → C1 and B → C2</li>
+          <li>Create token collection system for C1 (canopy) and C2 (root)</li>
+          <li>Add gate for D zone requiring both tokens</li>
+          <li>Implement lock feedback system (visual/text)</li>
+          <li>Test gating flow and save validation</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Implementation Log</h2>
+      <div class="log" id="implementationLog">
+        <div class="log-entry timestamp">2026-04-23 00:00:00</div>
+        <div class="log-entry info">📋 Starting Story #3 implementation...</div>
+      </div>
+    </section>
+
+    <section class="card" id="screenshotsSection" style="display: none;">
+      <h2>Screenshots & Visual Progress</h2>
+      <div class="screenshot-grid" id="screenshotGrid">
+        <!-- Screenshots will be added here -->
+      </div>
+    </section>
+
+    <section class="card" id="validationSection" style="display: none;">
+      <h2>Validation Tests</h2>
+      <div class="validation" id="validationResults">
+        <!-- Validation results will go here -->
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Current Tasks & Next Steps</h2>
+      <div class="next-steps" id="currentTasks">
+        <p>Starting implementation...</p>
+      </div>
+      <button onclick="window.location.reload()">Refresh Progress</button>
+    </section>
+  </div>
+
+  <script>
+    // Progress tracking
+    const acceptanceCriteria = [
+      { id: 1, text: "In B, split branches remain locked until 3 marker pads are cleared in Tutorial Lane.", status: "pending" },
+      { id: 2, text: "Completing C1 awards a canopy token and records branch completion state.", status: "pending" },
+      { id: 3, text: "Completing C2 awards a root token and records branch completion state.", status: "pending" },
+      { id: 4, text: "Entry to D stays locked until both canopy + root tokens exist, with explicit lock feedback.", status: "pending" },
+      { id: 5, text: "Gating behavior aligns with LO-2.1 (w progression in B/C1) and LO-2.2 (b recovery in C2) setup.", status: "pending" }
+    ];
+
+    const implementationLog = [
+      { time: "2026-04-23 00:00:00", type: "info", message: "📋 Starting Story #3 implementation..." }
+    ];
+
+    function updateProgress() {
+      const completed = acceptanceCriteria.filter(c => c.status === "done").length;
+      const total = acceptanceCriteria.length;
+      const percentage = Math.round((completed / total) * 100);
+      
+      document.getElementById('progressFill').style.width = `${percentage}%`;
+      document.getElementById('progressText').textContent = `${percentage}% complete (${completed}/${total} criteria)`;
+      
+      const criteriaContainer = document.getElementById('acceptanceCriteria');
+      criteriaContainer.innerHTML = '';
+      
+      acceptanceCriteria.forEach(criteria => {
+        const statusClass = criteria.status === 'done' ? 'success' : 
+                           criteria.status === 'in-progress' ? 'warning' : 'text-muted';
+        const statusText = criteria.status === 'done' ? '✅ Done' : 
+                          criteria.status === 'in-progress' ? '🔄 In Progress' : '⏳ Pending';
+        
+        const div = document.createElement('div');
+        div.className = 'criteria-item';
+        div.innerHTML = `
+          <h4>
+            <span>${criteria.id}.</span>
+            <span class="status" style="color: ${statusClass === 'success' ? '#a6e3a1' : 
+                                        statusClass === 'warning' ? '#f9e2af' : '#a6adc8'}">${statusText}</span>
+          </h4>
+          <p>${criteria.text}</p>
+        `;
+        criteriaContainer.appendChild(div);
+      });
+      
+      const logContainer = document.getElementById('implementationLog');
+      logContainer.innerHTML = '';
+      
+      implementationLog.forEach(entry => {
+        const timestamp = document.createElement('div');
+        timestamp.className = 'log-entry timestamp';
+        timestamp.textContent = entry.time;
+        logContainer.appendChild(timestamp);
+        
+        const message = document.createElement('div');
+        message.className = `log-entry ${entry.type}`;
+        message.textContent = entry.message;
+        logContainer.appendChild(message);
+      });
+      
+      // Show/hide sections based on progress
+      if (percentage > 0) {
+        document.getElementById('screenshotsSection').style.display = 'block';
+        document.getElementById('validationSection').style.display = 'block';
+      }
+    }
+    
+    function addLogEntry(type, message) {
+      const now = new Date();
+      const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+      implementationLog.push({ time: timestamp, type, message });
+      updateProgress();
+    }
+    
+    function updateCriteriaStatus(id, status) {
+      const criteria = acceptanceCriteria.find(c => c.id === id);
+      if (criteria) {
+        criteria.status = status;
+        updateProgress();
+      }
+    }
+    
+    function updateCurrentTasks(html) {
+      document.getElementById('currentTasks').innerHTML = html;
+    }
+    
+      updateCurrentTasks(html);
+    }
+    
+    // Initialize and show initial progress
+    updateProgress();
+    addLogEntry('success', '✅ Extended GameState interface with Zone 2 tracking fields');
+    addLogEntry('success', '✅ Added marker pad and branch token definitions to zone2WordWoods.ts');
+    addLogEntry('success', '✅ Updated Zone2Scene with interactive element tracking fields');
+    updateCriteriaStatus(1, 'in-progress');
+    updateCriteriaStatus(2, 'in-progress');
+    updateCriteriaStatus(3, 'in-progress');
+    
+    updateCurrentTasks(`
+      <h3>Current Phase: Zone 2 Scene Integration</h3>
+      <p>✅ Extended game state and content definitions:</p>
+      <div class="code-block" style="font-size: 12px;">
+        // New GameState fields:<br>
+        zone2TutorialPadsCleared: number;<br>
+        hasCanopyToken: boolean;<br>
+        hasRootToken: boolean;<br>
+        <br>
+        // Marker pads in Tutorial Lane (B):<br>
+        - Pad 1: (18, 26)<br>
+        - Pad 2: (22, 28)<br>
+        - Pad 3: (26, 30)<br>
+        <br>
+        // Branch tokens:<br>
+        - Canopy token: (58, 18) in C1<br>
+        - Root token: (56, 38) in C2<br>
+        <br>
+        // Zone2Scene updates:<br>
+        - Added <code>markerPads</code>, <code>branchTokens</code>, <code>zoneGates</code> arrays<br>
+        - Added <code>checkMarkerPadOverlap()</code>, <code>checkBranchTokenOverlap()</code> methods<br>
+      </div>
+      <p><strong>Next:</strong> Implementing interactive rendering and collision logic...</p>
+      <ul>
+        <li>Rendering marker pads with visual states (inactive/active)</li>
+        <li>Creating zone gate colliders at B→C1 and B→C2 transitions</li>
+        <li>Adding D zone gate requiring both tokens</li>
+      </ul>
+    `);
+  </script>
+</body>
+</html>

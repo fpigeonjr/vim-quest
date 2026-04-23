@@ -51,12 +51,30 @@ export interface Zone2HintObelisk {
   hint: string;
 }
 
+export interface Zone2MarkerPad {
+  id: string;
+  regionId: Zone2RegionId;
+  tile: TilePoint;
+  cleared: boolean;
+  requiredForAccess?: Zone2RegionId[]; // Which regions this pad gates access to
+}
+
+export interface Zone2BranchToken {
+  id: string;
+  regionId: Zone2RegionId;
+  tile: TilePoint;
+  kind: 'canopy' | 'root';
+  collected: boolean;
+}
+
 export interface Zone2LayoutData {
   mapSize: { width: number; height: number };
   entryTile: TilePoint;
   regions: ReadonlyArray<Zone2Region>;
   transitions: ReadonlyArray<Zone2TransitionLink>;
   collisionFeatures: ReadonlyArray<Zone2CollisionFeature>;
+  markerPads: ReadonlyArray<Zone2MarkerPad>;
+  branchTokens: ReadonlyArray<Zone2BranchToken>;
   arrivalCheckpoint: Zone2Checkpoint;
   arrivalHintObelisk: Zone2HintObelisk;
 }
@@ -246,6 +264,45 @@ export const ZONE2_WORD_WOODS_LAYOUT: Zone2LayoutData = {
       kind: 'resetRail',
       tiles: rectTiles({ xMin: 80, xMax: 88, yMin: 40, yMax: 40 }),
       note: 'Mandatory 0/$ anchor rail in lower terrace lane.',
+    },
+  ],
+  markerPads: [
+    {
+      id: 'tutorial-pad-1',
+      regionId: 'B',
+      tile: { x: 18, y: 26 },
+      cleared: false,
+      requiredForAccess: ['C1', 'C2'],
+    },
+    {
+      id: 'tutorial-pad-2',
+      regionId: 'B',
+      tile: { x: 22, y: 28 },
+      cleared: false,
+      requiredForAccess: ['C1', 'C2'],
+    },
+    {
+      id: 'tutorial-pad-3',
+      regionId: 'B',
+      tile: { x: 26, y: 30 },
+      cleared: false,
+      requiredForAccess: ['C1', 'C2'],
+    },
+  ],
+  branchTokens: [
+    {
+      id: 'canopy-token',
+      regionId: 'C1',
+      tile: { x: 58, y: 18 },
+      kind: 'canopy',
+      collected: false,
+    },
+    {
+      id: 'root-token',
+      regionId: 'C2',
+      tile: { x: 56, y: 38 },
+      kind: 'root',
+      collected: false,
     },
   ],
   arrivalCheckpoint: {
