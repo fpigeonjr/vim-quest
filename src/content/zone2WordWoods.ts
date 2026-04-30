@@ -67,6 +67,14 @@ export interface Zone2BranchToken {
   collected: boolean;
 }
 
+export interface WordLaneSegment {
+  id: string;
+  regionId: Zone2RegionId;
+  waypoints: TilePoint[];
+  entryFrom?: string;
+  exitsTo?: string[];
+}
+
 export interface Zone2LayoutData {
   mapSize: { width: number; height: number };
   entryTile: TilePoint;
@@ -77,6 +85,7 @@ export interface Zone2LayoutData {
   branchTokens: ReadonlyArray<Zone2BranchToken>;
   arrivalCheckpoint: Zone2Checkpoint;
   arrivalHintObelisk: Zone2HintObelisk;
+  wordLanes: ReadonlyArray<WordLaneSegment>;
 }
 
 const rectTiles = (bounds: TileBounds): TilePoint[] => {
@@ -317,6 +326,173 @@ export const ZONE2_WORD_WOODS_LAYOUT: Zone2LayoutData = {
     tile: { x: 6, y: 28 },
     hint: 'Word Woods teaches w b e. Reinforcement rails still allow 0 and $.',
   },
+  wordLanes: [
+    // Region A: gentle introduction to word jumps
+    {
+      id: 'lane-a-main',
+      regionId: 'A',
+      waypoints: [
+        { x: 2, y: 28 },
+        { x: 6, y: 28 },
+        { x: 10, y: 28 },
+        { x: 14, y: 28 },
+      ],
+      exitsTo: ['lane-b-main'],
+    },
+    // Region B: tutorial lane with staggered pads
+    {
+      id: 'lane-b-main',
+      regionId: 'B',
+      waypoints: [
+        { x: 14, y: 28 },
+        { x: 16, y: 28 },
+        { x: 18, y: 26 },
+        { x: 20, y: 27 },
+        { x: 22, y: 28 },
+        { x: 24, y: 29 },
+        { x: 26, y: 30 },
+        { x: 28, y: 29 },
+        { x: 30, y: 28 },
+        { x: 32, y: 28 },
+        { x: 34, y: 28 },
+      ],
+      entryFrom: 'lane-a-main',
+      exitsTo: ['lane-c1-main', 'lane-c2-main'],
+    },
+    // Region C1: north canopy — long forward jumps, dead-branch hazards
+    {
+      id: 'lane-c1-main',
+      regionId: 'C1',
+      waypoints: [
+        { x: 34, y: 28 },
+        { x: 34, y: 26 },
+        { x: 34, y: 24 },
+        { x: 34, y: 22 },
+        { x: 34, y: 20 },
+        { x: 36, y: 20 },
+        { x: 38, y: 19 },
+        { x: 40, y: 18 },
+        { x: 42, y: 18 },
+        { x: 44, y: 17 },
+        { x: 46, y: 16 },
+        { x: 48, y: 16 },
+        { x: 50, y: 16 },
+        { x: 52, y: 16 },
+        { x: 54, y: 16 },
+        { x: 56, y: 16 },
+        { x: 58, y: 17 },
+        { x: 60, y: 19 },
+        { x: 62, y: 22 },
+      ],
+      entryFrom: 'lane-b-main',
+      exitsTo: ['lane-d-north'],
+    },
+    // Region C2: root backtrack — overshoot loops requiring b recovery
+    {
+      id: 'lane-c2-main',
+      regionId: 'C2',
+      waypoints: [
+        { x: 34, y: 28 },
+        { x: 34, y: 30 },
+        { x: 34, y: 32 },
+        { x: 34, y: 34 },
+        { x: 34, y: 36 },
+        { x: 36, y: 36 },
+        { x: 38, y: 37 },
+        { x: 40, y: 38 },
+        { x: 42, y: 38 },
+        { x: 44, y: 39 },
+        { x: 46, y: 40 },
+        { x: 48, y: 40 },
+        { x: 50, y: 40 },
+        { x: 52, y: 40 },
+        { x: 54, y: 40 },
+        { x: 56, y: 40 },
+        { x: 58, y: 39 },
+        { x: 60, y: 37 },
+        { x: 62, y: 34 },
+      ],
+      entryFrom: 'lane-b-main',
+      exitsTo: ['lane-d-south'],
+    },
+    // Region D: echo arbor — convergence at D gate (62,28), then e shrine at (68,28)
+    {
+      id: 'lane-d-north',
+      regionId: 'D',
+      waypoints: [
+        { x: 62, y: 22 },
+        { x: 62, y: 24 },
+        { x: 62, y: 26 },
+        { x: 62, y: 28 },
+      ],
+      entryFrom: 'lane-c1-main',
+      exitsTo: ['lane-d-center'],
+    },
+    {
+      id: 'lane-d-south',
+      regionId: 'D',
+      waypoints: [
+        { x: 62, y: 34 },
+        { x: 62, y: 32 },
+        { x: 62, y: 30 },
+        { x: 62, y: 28 },
+      ],
+      entryFrom: 'lane-c2-main',
+      exitsTo: ['lane-d-center'],
+    },
+    {
+      id: 'lane-d-center',
+      regionId: 'D',
+      waypoints: [
+        { x: 62, y: 28 },
+        { x: 64, y: 28 },
+        { x: 66, y: 28 },
+        { x: 68, y: 28 },
+      ],
+      exitsTo: ['lane-d-east'],
+    },
+    {
+      id: 'lane-d-east',
+      regionId: 'D',
+      waypoints: [
+        { x: 68, y: 28 },
+        { x: 70, y: 28 },
+        { x: 72, y: 28 },
+        { x: 74, y: 28 },
+      ],
+      exitsTo: ['lane-e-main'],
+    },
+    // Region E: precision terraces — upper and lower paths with reset rails
+    {
+      id: 'lane-e-main',
+      regionId: 'E',
+      waypoints: [
+        { x: 74, y: 28 },
+        { x: 76, y: 26 },
+        { x: 78, y: 24 },
+        { x: 80, y: 22 },
+        { x: 82, y: 20 },
+        { x: 84, y: 22 },
+        { x: 86, y: 24 },
+        { x: 88, y: 26 },
+        { x: 90, y: 28 },
+      ],
+      entryFrom: 'lane-d-east',
+      exitsTo: ['lane-fg-main'],
+    },
+    // Region FG: lexeme shrine + sentence gate
+    {
+      id: 'lane-fg-main',
+      regionId: 'FG',
+      waypoints: [
+        { x: 90, y: 28 },
+        { x: 92, y: 28 },
+        { x: 94, y: 28 },
+        { x: 96, y: 28 },
+      ],
+      entryFrom: 'lane-e-main',
+    },
+  ],
 };
 
 export function getZone2Region(regionId: Zone2RegionId): Zone2Region {

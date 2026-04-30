@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '../game/config';
 import { GameState, REGISTRY_KEYS, saveState } from '../game/state';
-import { ZONE2_WORD_WOODS_LAYOUT } from '../content/zone2WordWoods';
+import { WordLaneSegment, ZONE2_WORD_WOODS_LAYOUT } from '../content/zone2WordWoods';
 import { isSlashModalOpen, registerGlobalSlashPrompt } from '../systems/slashCommands';
 import { TILE_IDS, tileTextureMap } from '../systems/tilemap';
 
@@ -18,6 +18,11 @@ export class Zone2Scene extends Phaser.Scene {
   private branchTokens: Phaser.GameObjects.Sprite[] = [];
   private zoneGates: Phaser.Physics.Arcade.Sprite[] = [];
   private lockFeedbackText?: Phaser.GameObjects.Text;
+  private wordLaneMarkers: Phaser.GameObjects.Sprite[] = [];
+  private currentLaneId?: string;
+  private currentWaypointIndex = -1;
+  private isJumping = false;
+  private eShrineActivated = false;
 
   constructor() {
     super('zone2');
@@ -31,6 +36,7 @@ export class Zone2Scene extends Phaser.Scene {
     this.addRegionLabels();
     this.addHudBanner();
     this.renderInteractiveElements();
+    this.renderWordLaneMarkers();
 
     this.syncState({
       mode: 'normal',
@@ -40,6 +46,10 @@ export class Zone2Scene extends Phaser.Scene {
   }
 
   update() {
+    if (this.isJumping) {
+      this.player.setVelocity(0, 0);
+      return;
+    }
     if (isSlashModalOpen(this)) {
       this.player.setVelocity(0, 0);
       return;
@@ -138,6 +148,10 @@ export class Zone2Scene extends Phaser.Scene {
       j: Phaser.Input.Keyboard.KeyCodes.J,
       k: Phaser.Input.Keyboard.KeyCodes.K,
       l: Phaser.Input.Keyboard.KeyCodes.L,
+      w: Phaser.Input.Keyboard.KeyCodes.W,
+      b: Phaser.Input.Keyboard.KeyCodes.B,
+      e: Phaser.Input.Keyboard.KeyCodes.E,
+      zero: Phaser.Input.Keyboard.KeyCodes.ZERO,
       esc: Phaser.Input.Keyboard.KeyCodes.ESC,
     }) as { [key: string]: Phaser.Input.Keyboard.Key };
 
@@ -148,6 +162,29 @@ export class Zone2Scene extends Phaser.Scene {
       if (isSlashModalOpen(this)) return;
     });
 
+    this.input.keyboard?.on('keydown-W', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleWordJump('w');
+    });
+    this.input.keyboard?.on('keydown-B', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleWordJump('b');
+    });
+    this.input.keyboard?.on('keydown-E', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleWordJump('e');
+    });
+    this.input.keyboard?.on('keydown-ZERO', () => {
+      if (isSlashModalOpen(this)) return;
+      this.handleAnchorSnap('start');
+    });
+    this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (isSlashModalOpen(this)) return;
+      if (event.key === '$') {
+        event.preventDefault();
+        this.handleAnchorSnap('end');
+      }
+    });
     this.input.keyboard?.on('keydown-ESC', () => {
       if (isSlashModalOpen(this)) return;
       this.syncState({
@@ -162,6 +199,7 @@ export class Zone2Scene extends Phaser.Scene {
   }
 
   private handleMovement() {
+    if (this.isJumping) return;
     const speed = 180;
     let vx = 0;
     let vy = 0;
@@ -244,7 +282,337 @@ export class Zone2Scene extends Phaser.Scene {
     saveState(nextState);
   }
 
+  private hasCommand(command: string): boolean {
+    const state = this.getState();
+    if (state.unlockedCommands.includes(command)) return true;
+    this.showFeedback(`Command locked: ${command} — find the shrine that teaches it.`, true);
+    return false;
+  }
+
+  // ─── Word Jump Mechanics ────────────────────────────────────────────────────
+
+  private handleWordJump(command: 'w' | 'b' | 'e') {
+    if (!this.hasCommand(command)) return;
+    if (this.isJumping) return;
+
+    const playerTile = {
+      x: Math.floor(this.player.x / TILE_SIZE),
+      y: Math.floor(this.player.y / TILE_SIZE),
+    };
+
+    // Find all lanes/waypoints near the player
+    const matches = this.findAllLaneMatches(playerTile);
+    if (matches.length === 0) {
+      this.syncState({ hint: 'Word jumps only work on the word lanes. Look for the faint blue markers.' });
+      return;
+    }
+
+    let target: { x: number; y: number } | null = null;
+
+    if (command === 'w') {
+      target = this.findForwardTarget(matches);
+      if (!target) {
+        this.syncState({ hint: 'End of the word lane. No more words forward.' });
+        return;
+      }
+    } else if (command === 'b') {
+      target = this.findBackwardTarget(matches);
+      if (!target) {
+        this.syncState({ hint: 'Start of the word lane. No more words backward.' });
+        return;
+      }
+    } else if (command === 'e') {
+      target = this.findEndTarget(matches);
+      if (!target) {
+        this.syncState({ hint: 'End of the word lane. No word end ahead.' });
+        return;
+      }
+    }
+
+    if (target) {
+      this.performJump(target, command);
+    }
+  }
+
+  private findAllLaneMatches(playerTile: { x: number; y: number }): Array<{ lane: WordLaneSegment; index: number; dist: number }> {
+    const matches: Array<{ lane: WordLaneSegment; index: number; dist: number }> = [];
+    for (const lane of ZONE2_WORD_WOODS_LAYOUT.wordLanes) {
+      for (let i = 0; i < lane.waypoints.length; i++) {
+        const wp = lane.waypoints[i];
+        const dist = Math.abs(wp.x - playerTile.x) + Math.abs(wp.y - playerTile.y);
+        if (dist <= 2) {
+          matches.push({ lane, index: i, dist });
+        }
+      }
+    }
+    matches.sort((a, b) => a.dist - b.dist);
+    return matches;
+  }
+
+  private findForwardTarget(matches: Array<{ lane: WordLaneSegment; index: number }>): { x: number; y: number } | null {
+    // Prefer a lane where we can move forward within the same lane
+    for (const match of matches) {
+      if (match.index < match.lane.waypoints.length - 1) {
+        return match.lane.waypoints[match.index + 1];
+      }
+    }
+    // If at end of all matching lanes, try exit lanes
+    for (const match of matches) {
+      if (match.lane.exitsTo && match.lane.exitsTo.length > 0) {
+        for (const exitId of match.lane.exitsTo) {
+          const exitLane = ZONE2_WORD_WOODS_LAYOUT.wordLanes.find((l) => l.id === exitId);
+          if (exitLane && exitLane.waypoints.length > 1) {
+            // Skip the shared waypoint (first one) and go to the next
+            return exitLane.waypoints[1];
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private findBackwardTarget(matches: Array<{ lane: WordLaneSegment; index: number }>): { x: number; y: number } | null {
+    // Prefer a lane where we can move backward within the same lane
+    for (const match of matches) {
+      if (match.index > 0) {
+        return match.lane.waypoints[match.index - 1];
+      }
+    }
+    // If at start of all matching lanes, try entry lanes
+    for (const match of matches) {
+      if (match.lane.entryFrom) {
+        const entryLane = ZONE2_WORD_WOODS_LAYOUT.wordLanes.find((l) => l.id === match.lane.entryFrom);
+        if (entryLane && entryLane.waypoints.length > 1) {
+          return entryLane.waypoints[entryLane.waypoints.length - 2];
+        }
+      }
+    }
+    return null;
+  }
+
+  private findEndTarget(matches: Array<{ lane: WordLaneSegment; index: number }>): { x: number; y: number } | null {
+    // e jumps to midpoint between current and next waypoint
+    for (const match of matches) {
+      if (match.index < match.lane.waypoints.length - 1) {
+        const current = match.lane.waypoints[match.index];
+        const next = match.lane.waypoints[match.index + 1];
+        return {
+          x: Math.round((current.x + next.x) / 2),
+          y: Math.round((current.y + next.y) / 2),
+        };
+      }
+    }
+    // Try exit lanes
+    for (const match of matches) {
+      if (match.lane.exitsTo && match.lane.exitsTo.length > 0) {
+        for (const exitId of match.lane.exitsTo) {
+          const exitLane = ZONE2_WORD_WOODS_LAYOUT.wordLanes.find((l) => l.id === exitId);
+          if (exitLane && exitLane.waypoints.length > 1) {
+            const current = exitLane.waypoints[0];
+            const next = exitLane.waypoints[1];
+            return {
+              x: Math.round((current.x + next.x) / 2),
+              y: Math.round((current.y + next.y) / 2),
+            };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private handleAnchorSnap(side: 'start' | 'end') {
+    const command = side === 'start' ? '0' : '$';
+    if (!this.hasCommand(command)) return;
+    if (this.isJumping) return;
+
+    const playerTile = {
+      x: Math.floor(this.player.x / TILE_SIZE),
+      y: Math.floor(this.player.y / TILE_SIZE),
+    };
+
+    const laneMatch = this.findNearestLaneAndWaypoint(playerTile);
+    if (!laneMatch) {
+      this.syncState({ hint: 'Anchor snaps only work on word lanes.' });
+      return;
+    }
+
+    const { lane } = laneMatch;
+    const waypoints = lane.waypoints;
+    const target = side === 'start' ? waypoints[0] : waypoints[waypoints.length - 1];
+
+    this.performJump(target, command);
+  }
+
+  private findNearestLaneAndWaypoint(playerTile: { x: number; y: number }): { lane: WordLaneSegment; index: number } | null {
+    const matches = this.findAllLaneMatches(playerTile);
+    if (matches.length === 0) return null;
+    return { lane: matches[0].lane, index: matches[0].index };
+  }
+
+  private performJump(targetTile: { x: number; y: number }, command: string) {
+    // Check if target is behind a closed gate
+    const gateBlock = this.getGateBlockAt(targetTile.x, targetTile.y);
+    if (gateBlock) {
+      this.showFeedback(gateBlock, true);
+      this.isJumping = false;
+      return;
+    }
+
+    this.isJumping = true;
+    const targetX = targetTile.x * TILE_SIZE + TILE_SIZE / 2;
+    const targetY = targetTile.y * TILE_SIZE + TILE_SIZE / 2;
+
+    // Check for hazards at target
+    const hazard = this.getHazardAt(targetTile.x, targetTile.y);
+    if (hazard) {
+      this.handleHazard(hazard, targetX, targetY);
+      return;
+    }
+
+    // Check for e-shrine activation in Region D
+    if (command === 'e' || command === 'w' || command === 'b') {
+      this.checkEShrine(targetTile.x, targetTile.y);
+    }
+
+    // Tween the jump
+    this.tweens.add({
+      targets: this.player,
+      x: targetX,
+      y: targetY,
+      duration: 180,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.isJumping = false;
+        this.player.setVelocity(0, 0);
+        this.checkMarkerPadAtTile(targetTile.x, targetTile.y);
+        this.checkBranchTokenAtTile(targetTile.x, targetTile.y);
+        this.syncState({ hint: this.jumpHint(command) });
+      },
+    });
+  }
+
+  private getGateBlockAt(x: number, y: number): string | null {
+    const state = this.getState();
+    // B→C1 gate at (34, 20)
+    if (x === 34 && y === 20) {
+      if (state.zone2TutorialPadsCleared < ZONE2_WORD_WOODS_LAYOUT.markerPads.length) {
+        return 'Clear all 3 marker pads in Tutorial Lane first!';
+      }
+    }
+    // B→C2 gate at (34, 36)
+    if (x === 34 && y === 36) {
+      if (state.zone2TutorialPadsCleared < ZONE2_WORD_WOODS_LAYOUT.markerPads.length) {
+        return 'Clear all 3 marker pads in Tutorial Lane first!';
+      }
+    }
+    // D gate at (62, 28)
+    if (x === 62 && y === 28) {
+      if (!state.hasCanopyToken || !state.hasRootToken) {
+        const missing: string[] = [];
+        if (!state.hasCanopyToken) missing.push('canopy token');
+        if (!state.hasRootToken) missing.push('root token');
+        return `Need ${missing.join(' and ')} to enter Echo Arbor!`;
+      }
+    }
+    return null;
+  }
+
+  private jumpHint(command: string): string {
+    const hints: Record<string, string> = {
+      w: 'Word forward! w jumps to the next word start.',
+      b: 'Word back! b jumps to the previous word start.',
+      e: 'Word end! e jumps to the end of the current word.',
+      '0': 'Line start! 0 snaps to the start of the lane.',
+      $: 'Line end! $ snaps to the end of the lane.',
+    };
+    return hints[command] ?? 'Word jump complete.';
+  }
+
+  private getHazardAt(x: number, y: number): { kind: string; message: string } | null {
+    for (const feature of ZONE2_WORD_WOODS_LAYOUT.collisionFeatures) {
+      for (const tile of feature.tiles) {
+        if (tile.x === x && tile.y === y) {
+          if (feature.kind === 'deadBranch') {
+            return { kind: 'deadBranch', message: 'Dead branch! You overshot into a punishing lane.' };
+          }
+          if (feature.kind === 'overshootLoop') {
+            return { kind: 'overshootLoop', message: 'Overshoot loop! Use b to recover back to the main path.' };
+          }
+          if (feature.kind === 'resetRail') {
+            return { kind: 'resetRail', message: 'Reset rail! You were sent back to the last checkpoint.' };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private handleHazard(hazard: { kind: string; message: string }, targetX: number, targetY: number) {
+    const state = this.getState();
+    const checkpoint = ZONE2_WORD_WOODS_LAYOUT.arrivalCheckpoint;
+    const respawnX = checkpoint.respawnTile.x * TILE_SIZE + TILE_SIZE / 2;
+    const respawnY = checkpoint.respawnTile.y * TILE_SIZE + TILE_SIZE / 2;
+
+    this.showFeedback(hazard.message, true);
+
+    // Flash red
+    this.cameras.main.flash(300, 200, 50, 50);
+
+    // Tween to hazard position, then respawn
+    this.tweens.add({
+      targets: this.player,
+      x: targetX,
+      y: targetY,
+      duration: 150,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.time.delayedCall(400, () => {
+          this.player.setPosition(respawnX, respawnY);
+          this.player.setVelocity(0, 0);
+          this.isJumping = false;
+          this.syncState({ hint: `Hazard! ${hazard.message} Respawned at checkpoint.` });
+        });
+      },
+    });
+  }
+
+  private checkEShrine(x: number, y: number) {
+    if (this.eShrineActivated) return;
+
+    // The Echo Arbor shrine is in Region D, near the convergence point
+    const shrineTile = { x: 68, y: 28 };
+    if (x === shrineTile.x && y === shrineTile.y) {
+      const state = this.getState();
+      if (!state.unlockedCommands.includes('e')) {
+        const unlocked = new Set(state.unlockedCommands);
+        unlocked.add('e');
+        this.syncState({
+          unlockedCommands: Array.from(unlocked),
+          hint: 'Echo Arbor shrine complete! Unlocked e — jump to word ends.',
+        });
+        this.showFeedback('★ Unlocked e — Word End! ★');
+        this.eShrineActivated = true;
+      }
+    }
+  }
+
   // ─── Interactive Elements ───────────────────────────────────────────────────
+
+  private renderWordLaneMarkers() {
+    for (const lane of ZONE2_WORD_WOODS_LAYOUT.wordLanes) {
+      for (const wp of lane.waypoints) {
+        const wx = wp.x * TILE_SIZE + TILE_SIZE / 2;
+        const wy = wp.y * TILE_SIZE + TILE_SIZE / 2;
+        const marker = this.add.sprite(wx, wy, 'tile-marker');
+        marker.setTint(0xaaddff);
+        marker.setAlpha(0.5);
+        marker.setScale(0.5);
+        marker.setDepth(3);
+        this.wordLaneMarkers.push(marker);
+      }
+    }
+  }
 
   private renderInteractiveElements() {
     this.renderMarkerPads();
@@ -359,49 +727,58 @@ export class Zone2Scene extends Phaser.Scene {
   }
 
   private checkMarkerPadOverlap() {
+    const tile = {
+      x: Math.floor(this.player.x / TILE_SIZE),
+      y: Math.floor(this.player.y / TILE_SIZE),
+    };
+    this.checkMarkerPadAtTile(tile.x, tile.y);
+  }
+
+  private checkMarkerPadAtTile(tx: number, ty: number) {
     const state = this.getState();
     const padsCleared = state.zone2TutorialPadsCleared;
-    
+
     for (let i = 0; i < this.markerPads.length; i++) {
       const sprite = this.markerPads[i];
       const pad = ZONE2_WORD_WOODS_LAYOUT.markerPads[i];
-      
+
       // Skip if already cleared beyond this pad
       if (padsCleared > i) continue;
-      
-      // Check overlap with player
-      if (this.physics.overlap(this.player, sprite)) {
-        // Mark this pad as cleared
+
+      // Check tile match
+      if (tx === pad.tile.x && ty === pad.tile.y) {
         this.syncState({ zone2TutorialPadsCleared: padsCleared + 1 });
-        
-        // Visual feedback
         sprite.setTint(0x88ff88);
-        
-        // Particle effect
         this.createClearedEffect(sprite.x, sprite.y);
-        
-        // Check if all pads are cleared
+
         if (padsCleared + 1 === ZONE2_WORD_WOODS_LAYOUT.markerPads.length) {
           this.showFeedback('Tutorial Lane cleared! Branches are now open.');
           this.updateGates();
         } else {
           this.showFeedback(`Marker pad ${padsCleared + 1}/3 cleared`);
         }
-        
+
         break;
       }
     }
   }
 
   private checkBranchTokenOverlap() {
+    const tile = {
+      x: Math.floor(this.player.x / TILE_SIZE),
+      y: Math.floor(this.player.y / TILE_SIZE),
+    };
+    this.checkBranchTokenAtTile(tile.x, tile.y);
+  }
+
+  private checkBranchTokenAtTile(tx: number, ty: number) {
     const state = this.getState();
-    
+
     for (let i = this.branchTokens.length - 1; i >= 0; i--) {
       const sprite = this.branchTokens[i];
       const token = ZONE2_WORD_WOODS_LAYOUT.branchTokens[i];
-      
-      if (this.physics.overlap(this.player, sprite)) {
-        // Collect token
+
+      if (tx === token.tile.x && ty === token.tile.y) {
         const update: Partial<GameState> = {};
         if (token.kind === 'canopy') {
           update.hasCanopyToken = true;
@@ -411,18 +788,16 @@ export class Zone2Scene extends Phaser.Scene {
           this.showFeedback('Root token collected!');
         }
         this.syncState(update);
-        
-        // Visual effects
+
         this.createTokenCollectionEffect(sprite.x, sprite.y, token.kind);
         sprite.destroy();
         this.branchTokens.splice(i, 1);
-        
-        // Check if both tokens are collected
+
         if (state.hasCanopyToken && state.hasRootToken) {
           this.showFeedback('Both branch tokens collected! Echo Arbor is now accessible.');
           this.updateGates();
         }
-        
+
         break;
       }
     }
