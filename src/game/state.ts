@@ -17,8 +17,10 @@ export type GameState = {
   // Zone 2 tracking
   zone2Entered: boolean;
   zone2TutorialPadsCleared: number;
+  zone2PrecisionPadsCleared: number;
   hasCanopyToken: boolean;
   hasRootToken: boolean;
+  zone2Complete: boolean;
 };
 
 export const defaultGameState = (): GameState => ({
@@ -39,8 +41,10 @@ export const defaultGameState = (): GameState => ({
   // Zone 2 defaults
   zone2Entered: false,
   zone2TutorialPadsCleared: 0,
+  zone2PrecisionPadsCleared: 0,
   hasCanopyToken: false,
   hasRootToken: false,
+  zone2Complete: false,
 });
 
 // Full command registry — defines every command's display label and unlock tier

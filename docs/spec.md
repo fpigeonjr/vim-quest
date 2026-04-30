@@ -399,8 +399,7 @@ The vertical slice is the most important milestone. It should prove the game is 
 
 ### In Progress
 
-- Region E precision terrace puzzles
-- Region FG lexeme shrine mastery gate
+- Zone 2 polish: enemy/pressure encounters
 - Zone 3+ planning
 
 ### Not Done
@@ -422,8 +421,8 @@ The vertical slice is the most important milestone. It should prove the game is 
 8. ~~Build Zone 2 word-jump mechanics~~ ✅
 9. ~~Add natural Zone 2 entrance from Level 1 completion~~ ✅
 10. ~~Add Zone 2 NPC mentor and dialogue beats~~ ✅
-11. Build Region E precision terrace puzzles
-12. Build Region FG lexeme shrine mastery gate
+11. ~~Build Region E precision terrace puzzles~~ ✅
+12. ~~Build Region FG lexeme shrine mastery gate~~ ✅
 
 ## Progress Tracker
 
@@ -464,8 +463,9 @@ The vertical slice is the most important milestone. It should prove the game is 
 - [x] Automated playthrough validation
 - [x] Natural entrance from Level 1 — portal east of flag enclosure opens on completion
 - [x] Arrival dialogue — two-page Word Woods Guide on first visit
-- [ ] Region E precision terrace puzzles
-- [ ] Region FG lexeme shrine mastery gate
+- [x] Region E precision terrace puzzles — e lands on gold pads, w hits reset rails when uncleared
+- [x] Region FG lexeme shrine mastery gate — Zone 2 completion overlay with confetti
+- [x] Zone 2 full playthrough validation — 34-step automated test covering A through FG
 
 ### Milestone 4: Teaching Polish
 

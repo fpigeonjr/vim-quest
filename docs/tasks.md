@@ -28,10 +28,15 @@ Use this file as the lightweight execution checklist derived from `docs/spec.md`
 - [x] Zone 2 arrival dialogue — two-page Word Woods Guide on first visit
 - [x] Portal flow automated test (9-step validation)
 
+## Completed
+
+- [x] Region E precision terrace puzzles — wide waypoints with e-midpoint precision pads
+- [x] Region E reset rail system — w overshoots redirect to hazards when pads uncleared
+- [x] Region FG lexeme shrine — Zone 2 completion trigger with confetti overlay
+- [x] Zone 2 automated playthrough extended to 34 steps (includes E + FG)
+
 ## Ready Next
 
-- [ ] Region E precision terrace puzzles — mixed w/b/e with 0/$ reset rails
-- [ ] Region FG lexeme shrine — final mastery gate before returning to hub
 - [ ] Add enemies/pressure encounters to Word Woods
 - [ ] Replace generated textures with a proper tileset pass
 

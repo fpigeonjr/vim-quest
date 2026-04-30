@@ -67,6 +67,15 @@ export interface Zone2BranchToken {
   collected: boolean;
 }
 
+export interface Zone2PrecisionPad {
+  id: string;
+  regionId: Zone2RegionId;
+  tile: TilePoint;
+  cleared: boolean;
+  gatesWaypoint: TilePoint; // The waypoint that is locked until this pad is cleared
+  resetRailTiles: TilePoint[]; // Hazard tiles the player is sent to if w is used before clearing
+}
+
 export interface WordLaneSegment {
   id: string;
   regionId: Zone2RegionId;
@@ -83,9 +92,11 @@ export interface Zone2LayoutData {
   collisionFeatures: ReadonlyArray<Zone2CollisionFeature>;
   markerPads: ReadonlyArray<Zone2MarkerPad>;
   branchTokens: ReadonlyArray<Zone2BranchToken>;
+  precisionPads: ReadonlyArray<Zone2PrecisionPad>;
   arrivalCheckpoint: Zone2Checkpoint;
   arrivalHintObelisk: Zone2HintObelisk;
   wordLanes: ReadonlyArray<WordLaneSegment>;
+  lexemeShrineTile: TilePoint;
 }
 
 const rectTiles = (bounds: TileBounds): TilePoint[] => {
@@ -261,18 +272,18 @@ export const ZONE2_WORD_WOODS_LAYOUT: Zone2LayoutData = {
       note: 'Second overshoot-recovery loop for repeated LO-2.2 checks.',
     },
     {
-      id: 'e-anchor-rail-top',
+      id: 'e-reset-rail-1',
       regionId: 'E',
       kind: 'resetRail',
-      tiles: rectTiles({ xMin: 76, xMax: 84, yMin: 16, yMax: 16 }),
-      note: 'Mandatory 0/$ anchor rail in upper terrace lane.',
+      tiles: [{ x: 77, y: 28 }],
+      note: 'Precision terrace reset rail — w overshoots pad 1 and hits this rail.',
     },
     {
-      id: 'e-anchor-rail-bottom',
+      id: 'e-reset-rail-2',
       regionId: 'E',
       kind: 'resetRail',
-      tiles: rectTiles({ xMin: 80, xMax: 88, yMin: 40, yMax: 40 }),
-      note: 'Mandatory 0/$ anchor rail in lower terrace lane.',
+      tiles: [{ x: 83, y: 28 }],
+      note: 'Precision terrace reset rail — w overshoots pad 2 and hits this rail.',
     },
   ],
   markerPads: [
@@ -326,6 +337,25 @@ export const ZONE2_WORD_WOODS_LAYOUT: Zone2LayoutData = {
     tile: { x: 6, y: 28 },
     hint: 'Word Woods teaches w b e. Reinforcement rails still allow 0 and $.',
   },
+  precisionPads: [
+    {
+      id: 'terrace-pad-1',
+      regionId: 'E',
+      tile: { x: 76, y: 28 },
+      cleared: false,
+      gatesWaypoint: { x: 78, y: 28 },
+      resetRailTiles: [{ x: 77, y: 28 }],
+    },
+    {
+      id: 'terrace-pad-2',
+      regionId: 'E',
+      tile: { x: 82, y: 28 },
+      cleared: false,
+      gatesWaypoint: { x: 86, y: 28 },
+      resetRailTiles: [{ x: 83, y: 28 }],
+    },
+  ],
+  lexemeShrineTile: { x: 94, y: 28 },
   wordLanes: [
     // Region A: gentle introduction to word jumps
     {
@@ -462,19 +492,14 @@ export const ZONE2_WORD_WOODS_LAYOUT: Zone2LayoutData = {
       ],
       exitsTo: ['lane-e-main'],
     },
-    // Region E: precision terraces — upper and lower paths with reset rails
+    // Region E: precision terraces — wide waypoints with precision pads at e-midpoints
     {
       id: 'lane-e-main',
       regionId: 'E',
       waypoints: [
         { x: 74, y: 28 },
-        { x: 76, y: 26 },
-        { x: 78, y: 24 },
-        { x: 80, y: 22 },
-        { x: 82, y: 20 },
-        { x: 84, y: 22 },
-        { x: 86, y: 24 },
-        { x: 88, y: 26 },
+        { x: 78, y: 28 },
+        { x: 86, y: 28 },
         { x: 90, y: 28 },
       ],
       entryFrom: 'lane-d-east',
@@ -488,7 +513,6 @@ export const ZONE2_WORD_WOODS_LAYOUT: Zone2LayoutData = {
         { x: 90, y: 28 },
         { x: 92, y: 28 },
         { x: 94, y: 28 },
-        { x: 96, y: 28 },
       ],
       entryFrom: 'lane-e-main',
     },

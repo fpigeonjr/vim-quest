@@ -92,10 +92,15 @@ await page.evaluate(() => {
       const unlocked = new Set([...state.unlockedCommands, 'w', 'b', '0', '$']);
       scene.registry.set('gameState', {
         ...state,
+        zone2Entered: true,
         unlockedCommands: Array.from(unlocked),
         areaName: 'Word Woods',
         hint: 'Welcome to Word Woods. Use w and b to jump along the word lanes.',
       });
+      // Dismiss arrival dialogue if it was shown before state was patched
+      if (scene.dialogueActive || scene.introOverlayActive) {
+        scene.closeDialogue();
+      }
     }
   }
 });
@@ -240,7 +245,7 @@ await tap(page, '0');
 await page.waitForTimeout(400);
 await shot(page, '25-snap-0', '0 snap to start of lane (74,28)');
 
-await warpTo(page, 80, 22);
+await warpTo(page, 86, 28);
 await tap(page, '$');
 await page.waitForTimeout(400);
 await shot(page, '26-snap-dollar', '$ snap to end of lane (90,28)');
@@ -252,6 +257,56 @@ await tap(page, 'w');
 await page.waitForTimeout(400);
 // This should land on or near dead branch tiles (42-46, 15-16)
 await shot(page, '27-dead-branch', 'Dead branch hazard test — should reset to checkpoint');
+
+// ── Test 12: Region E precision terrace — w hits reset rail ──────────────────
+console.log('\n--- Test 12: Region E — w overshoots uncleared precision pad ---');
+await warpTo(page, 74, 28);
+await tap(page, 'w');
+await page.waitForTimeout(600);
+await shot(page, '28-e-terrace-w-rail', 'w from (74,28) hits reset rail — pad 1 uncleared');
+
+// ── Test 13: e lands on precision pad 1 ──────────────────────────────────────
+console.log('\n--- Test 13: Region E — e lands on precision pad 1 ---');
+await warpTo(page, 74, 28);
+await tap(page, 'e');
+await page.waitForTimeout(600);
+await shot(page, '29-e-pad-1-cleared', 'e from (74,28) lands on precision pad 1 at (76,28)');
+
+// ── Test 14: w now safe, then e to precision pad 2 ───────────────────────────
+console.log('\n--- Test 14: Region E — w safe after pad 1, then e to pad 2 ---');
+await warpTo(page, 74, 28);
+await tap(page, 'w');
+await page.waitForTimeout(400);
+await shot(page, '30-w-safe-to-78', 'w from (74,28) now safe to (78,28)');
+
+await warpTo(page, 78, 28);
+await tap(page, 'e');
+await page.waitForTimeout(600);
+await shot(page, '31-e-pad-2-cleared', 'e from (78,28) lands on precision pad 2 at (82,28)');
+
+// ── Test 15: Enter FG and reach Lexeme Shrine ────────────────────────────────
+console.log('\n--- Test 15: Enter FG and reach Lexeme Shrine ---');
+await warpTo(page, 86, 28);
+await tap(page, 'w');
+await page.waitForTimeout(400);
+await shot(page, '32-fg-entered', 'Entered FG — gate open, heading to shrine');
+
+await warpTo(page, 94, 28);
+await page.waitForTimeout(600);
+await shot(page, '33-lexeme-shrine', 'Reached Lexeme Shrine at (94,28)');
+
+// ── Test 16: Zone 2 completion ───────────────────────────────────────────────
+console.log('\n--- Test 16: Zone 2 completion ---');
+await page.waitForTimeout(800);
+await shot(page, '34-zone2-complete', 'Zone 2 completion overlay');
+
+const zone2Complete = await page.evaluate(() => {
+  const scene = window.__game?.scene?.getScene('zone2');
+  if (!scene) return false;
+  const state = scene.registry.get('gameState');
+  return state?.zone2Complete ?? false;
+});
+console.log(`Zone 2 complete: ${zone2Complete}`);
 
 await browser.close();
 console.log('\n✅ Zone 2 playthrough complete. Screenshots saved to', OUT);

@@ -19,17 +19,19 @@ const ARRIVAL_DIALOGUE: string[][] = [
     '',
     'Use  w  to jump forward to the next word.',
     'Use  b  to step back to the previous one.',
+    'Use  e  to land precisely at word ends.',
     '',
     'Clear the marker pads ahead to open the branching paths.',
     '',
     '[Press Space or Enter to continue]',
   ],
   [
-    'The Word Woods have three trials for you:',
+    'The Word Woods have four trials for you:',
     '',
     '  1. Tutorial Lane — practise w and b on marker pads.',
     '  2. North Canopy & Root Backtrack — collect both branch tokens.',
-    '  3. Echo Arbor — unlock the e command and reach the shrine.',
+    '  3. Echo Arbor — unlock the e command.',
+    '  4. Precision Terraces — use e to clear gold pads, then reach the Lexeme Shrine.',
     '',
     'When you are ready, step onto the first word-lane.',
     '',
@@ -46,10 +48,12 @@ export class Zone2Scene extends Phaser.Scene {
   private zoneGates: Phaser.Physics.Arcade.Sprite[] = [];
   private lockFeedbackText?: Phaser.GameObjects.Text;
   private wordLaneMarkers: Phaser.GameObjects.Sprite[] = [];
+  private precisionPadSprites: Phaser.GameObjects.Sprite[] = [];
   private currentLaneId?: string;
   private currentWaypointIndex = -1;
   private isJumping = false;
   private eShrineActivated = false;
+  private zone2CompleteTriggered = false;
 
   // Dialogue state
   private dialogueBox?: Phaser.GameObjects.Container;
@@ -75,6 +79,7 @@ export class Zone2Scene extends Phaser.Scene {
     this.addHudBanner();
     this.renderInteractiveElements();
     this.renderWordLaneMarkers();
+    this.renderPrecisionPads();
 
     const state = this.getState();
     this.syncState({
@@ -105,7 +110,9 @@ export class Zone2Scene extends Phaser.Scene {
     this.handleMovement();
     this.checkMarkerPadOverlap();
     this.checkBranchTokenOverlap();
+    this.checkPrecisionPadOverlap();
     this.checkZoneGateCollisions();
+    this.checkLexemeShrine();
   }
 
   private buildZone2Map() {
@@ -148,6 +155,7 @@ export class Zone2Scene extends Phaser.Scene {
 
     mapData[arrivalCheckpoint.tile.y][arrivalCheckpoint.tile.x] = TILE_IDS.marker;
     mapData[arrivalHintObelisk.tile.y][arrivalHintObelisk.tile.x] = TILE_IDS.shrine;
+    mapData[ZONE2_WORD_WOODS_LAYOUT.lexemeShrineTile.y][ZONE2_WORD_WOODS_LAYOUT.lexemeShrineTile.x] = TILE_IDS.shrine;
 
     this.colliderGroup = this.physics.add.staticGroup();
 
@@ -381,6 +389,11 @@ export class Zone2Scene extends Phaser.Scene {
         this.syncState({ hint: 'End of the word lane. No more words forward.' });
         return;
       }
+      // Region E precision terrace: check for uncleared precision pad
+      const redirected = this.checkPrecisionPadRedirect(matches, target);
+      if (redirected) {
+        target = redirected;
+      }
     } else if (command === 'b') {
       target = this.findBackwardTarget(matches);
       if (!target) {
@@ -487,6 +500,217 @@ export class Zone2Scene extends Phaser.Scene {
     return null;
   }
 
+  // ─── Precision Terrace Mechanics ───────────────────────────────────────────
+
+  private checkPrecisionPadRedirect(
+    matches: Array<{ lane: WordLaneSegment; index: number }>,
+    target: { x: number; y: number },
+  ): { x: number; y: number } | null {
+    const state = this.getState();
+    for (const match of matches) {
+      if (match.index >= match.lane.waypoints.length - 1) continue;
+      const current = match.lane.waypoints[match.index];
+      // Check if there's an uncleared precision pad between current and target
+      for (const pad of ZONE2_WORD_WOODS_LAYOUT.precisionPads) {
+        if (pad.cleared || state.zone2PrecisionPadsCleared >= this.getPrecisionPadIndex(pad.id) + 1) continue;
+        // Is the pad between current and target?
+        const padBetweenX =
+          (current.x <= pad.tile.x && pad.tile.x <= target.x) || (target.x <= pad.tile.x && pad.tile.x <= current.x);
+        const padBetweenY =
+          (current.y <= pad.tile.y && pad.tile.y <= target.y) || (target.y <= pad.tile.y && pad.tile.y <= current.y);
+        if (padBetweenX && padBetweenY) {
+          // Redirect to first reset rail tile
+          if (pad.resetRailTiles.length > 0) {
+            return { x: pad.resetRailTiles[0].x, y: pad.resetRailTiles[0].y };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  private getPrecisionPadIndex(padId: string): number {
+    return ZONE2_WORD_WOODS_LAYOUT.precisionPads.findIndex((p) => p.id === padId);
+  }
+
+  private checkPrecisionPadOverlap() {
+    const tile = {
+      x: Math.floor(this.player.x / TILE_SIZE),
+      y: Math.floor(this.player.y / TILE_SIZE),
+    };
+    this.checkPrecisionPadAtTile(tile.x, tile.y);
+  }
+
+  private checkPrecisionPadAtTile(tx: number, ty: number) {
+    const state = this.getState();
+    const padsCleared = state.zone2PrecisionPadsCleared;
+
+    for (let i = 0; i < this.precisionPadSprites.length; i++) {
+      const sprite = this.precisionPadSprites[i];
+      const pad = ZONE2_WORD_WOODS_LAYOUT.precisionPads[i];
+
+      if (padsCleared > i) continue;
+
+      if (tx === pad.tile.x && ty === pad.tile.y) {
+        this.syncState({ zone2PrecisionPadsCleared: padsCleared + 1 });
+        sprite.setTint(0x88ff88);
+        this.createClearedEffect(sprite.x, sprite.y);
+        this.showFeedback(`Precision pad ${padsCleared + 1}/2 cleared! w now reaches the next waypoint safely.`);
+
+        if (padsCleared + 1 === ZONE2_WORD_WOODS_LAYOUT.precisionPads.length) {
+          this.showFeedback('All precision pads cleared! The Lexeme Shrine gate is now open.');
+          this.updateGates();
+        }
+        break;
+      }
+    }
+  }
+
+  private renderPrecisionPads() {
+    const state = this.getState();
+
+    for (const pad of ZONE2_WORD_WOODS_LAYOUT.precisionPads) {
+      const wx = pad.tile.x * TILE_SIZE + TILE_SIZE / 2;
+      const wy = pad.tile.y * TILE_SIZE + TILE_SIZE / 2;
+
+      const isCleared = state.zone2PrecisionPadsCleared >= this.getPrecisionPadIndex(pad.id) + 1;
+
+      const sprite = this.add.sprite(wx, wy, 'tile-precision');
+      sprite.setDepth(5);
+
+      if (isCleared) {
+        sprite.setTint(0x88ff88);
+      } else {
+        sprite.setTint(0xffffff);
+        // Subtle bob animation for uncleared pads
+        this.tweens.add({
+          targets: sprite,
+          y: wy - 3,
+          duration: 900,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+
+      this.precisionPadSprites.push(sprite);
+    }
+  }
+
+  // ─── Lexeme Shrine (FG Completion) ────────────────────────────────────────
+
+  private checkLexemeShrine() {
+    if (this.zone2CompleteTriggered) return;
+
+    const tile = {
+      x: Math.floor(this.player.x / TILE_SIZE),
+      y: Math.floor(this.player.y / TILE_SIZE),
+    };
+
+    const shrine = ZONE2_WORD_WOODS_LAYOUT.lexemeShrineTile;
+    if (tile.x !== shrine.x || tile.y !== shrine.y) return;
+
+    const state = this.getState();
+    if (state.zone2Complete) return;
+
+    this.zone2CompleteTriggered = true;
+    this.syncState({
+      zone2Complete: true,
+      hint: 'ZONE 2 COMPLETE! You have mastered w, b, and e. Return to the hub when ready.',
+    });
+    this.showFeedback('🏆 ZONE 2 COMPLETE — Lexeme Shrine cleared! 🏆');
+    this.triggerZone2Win();
+  }
+
+  private triggerZone2Win() {
+    this.player.setVelocity(0, 0);
+
+    for (let i = 0; i < 60; i++) {
+      this.spawnConfetti();
+    }
+
+    const cx = this.cameras.main.scrollX + this.cameras.main.width / 2 / this.cameras.main.zoom;
+    const cy = this.cameras.main.scrollY + this.cameras.main.height / 2 / this.cameras.main.zoom;
+
+    const overlay = this.add.rectangle(cx, cy, 520, 260, 0xf4efe2, 0.94).setDepth(50).setStrokeStyle(4, 0xd4b66d, 1);
+
+    this.add
+      .text(cx, cy - 80, '🏆 ZONE 2 COMPLETE! 🏆', {
+        fontFamily: 'Palatino Linotype',
+        fontSize: '28px',
+        color: '#705628',
+        align: 'center',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
+
+    this.add
+      .text(cx, cy - 30, 'You mastered word movement:', {
+        fontFamily: 'Courier New',
+        fontSize: '16px',
+        color: '#5d4f40',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
+
+    this.add
+      .text(cx, cy + 10, 'w  b  e  0  $', {
+        fontFamily: 'Courier New',
+        fontSize: '20px',
+        color: '#7e5b2d',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
+
+    this.add
+      .text(cx, cy + 55, 'Press ESC to return to Cursor Meadow', {
+        fontFamily: 'Courier New',
+        fontSize: '15px',
+        color: '#8a7e6d',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
+
+    this.tweens.add({
+      targets: overlay,
+      scaleX: 1.02,
+      scaleY: 1.02,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private spawnConfetti() {
+    const colors = [0xe0bf6a, 0x79d65c, 0xd06b4d, 0x6f89ea, 0xb55d52, 0xc89243, 0xb8bfef];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const px = this.player.x + Phaser.Math.Between(-80, 80);
+    const py = this.player.y + Phaser.Math.Between(-60, 20);
+
+    const piece = this.add
+      .rectangle(px, py, Phaser.Math.Between(5, 12), Phaser.Math.Between(5, 12), color)
+      .setDepth(45)
+      .setAngle(Phaser.Math.Between(0, 360));
+
+    this.tweens.add({
+      targets: piece,
+      x: px + Phaser.Math.Between(-120, 120),
+      y: py + Phaser.Math.Between(60, 200),
+      angle: piece.angle + Phaser.Math.Between(-180, 180),
+      alpha: 0,
+      scaleX: 0.2,
+      scaleY: 0.2,
+      duration: Phaser.Math.Between(900, 1800),
+      ease: 'Quad.easeOut',
+      onComplete: () => piece.destroy(),
+    });
+  }
+
   private handleAnchorSnap(side: 'start' | 'end') {
     const command = side === 'start' ? '0' : '$';
     if (!this.hasCommand(command)) return;
@@ -553,6 +777,8 @@ export class Zone2Scene extends Phaser.Scene {
         this.player.setVelocity(0, 0);
         this.checkMarkerPadAtTile(targetTile.x, targetTile.y);
         this.checkBranchTokenAtTile(targetTile.x, targetTile.y);
+        this.checkPrecisionPadAtTile(targetTile.x, targetTile.y);
+        this.checkLexemeShrine();
         this.syncState({ hint: this.jumpHint(command) });
       },
     });
@@ -581,6 +807,12 @@ export class Zone2Scene extends Phaser.Scene {
         return `Need ${missing.join(' and ')} to enter Echo Arbor!`;
       }
     }
+    // E→FG gate at (90, 28)
+    if (x === 90 && y === 28) {
+      if (state.zone2PrecisionPadsCleared < ZONE2_WORD_WOODS_LAYOUT.precisionPads.length) {
+        return 'Clear both precision pads in the terraces first!';
+      }
+    }
     return null;
   }
 
@@ -588,7 +820,7 @@ export class Zone2Scene extends Phaser.Scene {
     const hints: Record<string, string> = {
       w: 'Word forward! w jumps to the next word start.',
       b: 'Word back! b jumps to the previous word start.',
-      e: 'Word end! e jumps to the end of the current word.',
+      e: 'Precision landing! e lands at word-end midpoints — perfect for gold pads.',
       '0': 'Line start! 0 snaps to the start of the lane.',
       $: 'Line end! $ snaps to the end of the lane.',
     };
@@ -747,8 +979,11 @@ export class Zone2Scene extends Phaser.Scene {
     
     // Gate to D (requires both tokens)
     const gateToD = this.createGateSprite(62, 28, 'D Gate');
-    
-    this.zoneGates.push(gateBtoC1, gateBtoC2, gateToD);
+
+    // Gate to FG (requires precision pads)
+    const gateToFG = this.createGateSprite(90, 28, 'FG Gate');
+
+    this.zoneGates.push(gateBtoC1, gateBtoC2, gateToD, gateToFG);
   }
 
   private createGateSprite(xTile: number, yTile: number, label: string): Phaser.Physics.Arcade.Sprite {
@@ -892,6 +1127,12 @@ export class Zone2Scene extends Phaser.Scene {
             this.showFeedback(`Need ${missing.join(' and ')} to enter Echo Arbor!`, true);
             this.bouncePlayerFromGate(gate);
           }
+        } else if (gateIndex === 3) {
+          // E→FG gate
+          if (state.zone2PrecisionPadsCleared < ZONE2_WORD_WOODS_LAYOUT.precisionPads.length) {
+            this.showFeedback('Clear both precision pads in the terraces first!', true);
+            this.bouncePlayerFromGate(gate);
+          }
         }
       }
     }
@@ -918,6 +1159,15 @@ export class Zone2Scene extends Phaser.Scene {
         this.zoneGates[2]!.setAlpha(0.3);
         this.zoneGates[2]!.setTint(0x55ff55);
         this.zoneGates[2]!.body!.enable = false;
+      }
+    }
+
+    // Update E→FG gate
+    if (state.zone2PrecisionPadsCleared >= ZONE2_WORD_WOODS_LAYOUT.precisionPads.length) {
+      if (this.zoneGates[3]?.body) {
+        this.zoneGates[3]!.setAlpha(0.3);
+        this.zoneGates[3]!.setTint(0x55ff55);
+        this.zoneGates[3]!.body!.enable = false;
       }
     }
   }
