@@ -386,29 +386,43 @@ The vertical slice is the most important milestone. It should prove the game is 
 
 ### Done
 
-- browser prototype exists
-- basic command interactions exist in prototype form
-- repo is set up and published
+- Phaser + TypeScript + Vite architecture
+- scrolling overworld (Cursor Meadow / Zone 1)
+- tilemap pipeline with generated textures
+- entity system with physics collision
+- save system via localStorage
+- structured content pipeline (`src/content/`)
+- Zelda-like progression loop with gates, shrines, and relics
+- slash command warp system
+- **Zone 2 (Word Woods) word-jump mechanics** — w/b/e along data-driven lanes
+- hazard system with checkpoint respawn
+
+### In Progress
+
+- Zone 2 polish: NPC dialogue, natural entrance from Level 1, E/FG regions
+- Zone 3+ planning
 
 ### Not Done
 
-- Phaser architecture
-- scrolling world
-- tilemap pipeline
-- entity system
-- save system
-- structured content pipeline
-- Zelda-like progression loop
+- Proper tileset art pass (still using generated textures)
+- Enemy/pressure encounters
+- Sound and music polish
+- Accessibility features
 
 ## Next Tasks
 
-1. Replatform to `Phaser + TypeScript + Vite`
-2. Create scene skeletons and app bootstrap
-3. Build one scrolling overworld test map
-4. Add player controller and camera follow
-5. Add a command HUD and unlock registry
-6. Port the first set of commands into the new architecture
-7. Build the first tutorial region and one dungeon
+1. ~~Replatform to `Phaser + TypeScript + Vite`~~ ✅
+2. ~~Create scene skeletons and app bootstrap~~ ✅
+3. ~~Build one scrolling overworld test map~~ ✅
+4. ~~Add player controller and camera follow~~ ✅
+5. ~~Add a command HUD and unlock registry~~ ✅
+6. ~~Port the first set of commands into the new architecture~~ ✅
+7. ~~Build the first tutorial region and one dungeon~~ ✅
+8. ~~Build Zone 2 word-jump mechanics~~ ✅
+9. Add natural Zone 2 entrance from Level 1 completion
+10. Add Zone 2 NPC mentor and dialogue beats
+11. Build Region E precision terrace puzzles
+12. Build Region FG lexeme shrine mastery gate
 
 ## Progress Tracker
 
@@ -427,18 +441,36 @@ The vertical slice is the most important milestone. It should prove the game is 
 - [x] Collision layers
 - [x] Player entity
 - [x] UI scene
+- [x] Slash command warp system
 
 ### Milestone 2: Vertical Slice
 
-- [ ] Overworld region
-- [ ] First dungeon
-- [ ] Unlock progression
-- [ ] Save/load
-- [ ] Puzzle scripting
+- [x] Overworld region (Cursor Meadow)
+- [x] First dungeon (Cursor Shrine — 3 rooms)
+- [x] Unlock progression (h/j/k/l → w/b → 0/$ → x → i)
+- [x] Save/load
+- [x] Puzzle scripting (crate breaking, bridge building, flag capture)
 
-### Milestone 3: Teaching Polish
+### Milestone 3: Zone 2 — Word Woods
 
-- [ ] NPC guidance
-- [ ] Hint system
-- [ ] Better command feedback
-- [ ] Reset/retry flow
+- [x] Data-driven region layout (A through FG)
+- [x] Word-jump mechanics (w, b, e)
+- [x] Anchor snaps (0, $)
+- [x] Lane transitions across region boundaries
+- [x] Gate progression (tutorial pads → branch gates → tokens → D gate)
+- [x] Hazard system (dead branches, overshoot loops, reset rails)
+- [x] e-shrine unlock at Echo Arbor
+- [x] Automated playthrough validation
+- [ ] Natural entrance from Level 1 (currently slash-only)
+- [ ] NPC mentor dialogue in arrival clearing
+- [ ] Region E precision terrace puzzles
+- [ ] Region FG lexeme shrine mastery gate
+
+### Milestone 4: Teaching Polish
+
+- [x] NPC guidance (Level 1 mentor)
+- [x] Hint system (HUD hint text)
+- [x] Command feedback (toast messages, locked command warnings)
+- [x] Reset/retry flow (hazard checkpoint respawn)
+- [ ] Better onboarding for Zone 2
+- [ ] Zone 2 dialogue and teaching beats
