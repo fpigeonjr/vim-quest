@@ -216,6 +216,26 @@ const drawDungeonTile = (graphics: Phaser.GameObjects.Graphics) => {
   graphics.strokePath();
 };
 
+const drawPortalTile = (graphics: Phaser.GameObjects.Graphics) => {
+  drawGrassTile(graphics);
+  // Glowing portal swirl
+  graphics.fillStyle(0x6e6bd2, 0.35);
+  graphics.fillCircle(16, 16, 14);
+  graphics.fillStyle(0x8a87e8, 0.45);
+  graphics.fillCircle(16, 16, 10);
+  graphics.fillStyle(0xc8c9ff, 0.55);
+  graphics.fillCircle(16, 16, 6);
+  graphics.lineStyle(2, 0xe8e6ff, 0.8);
+  graphics.strokeCircle(16, 16, 12);
+  graphics.lineStyle(2, 0xa5a2f0, 0.7);
+  graphics.strokeCircle(16, 16, 8);
+  // Sparkle dots
+  graphics.fillStyle(0xffffff, 0.9);
+  graphics.fillCircle(10, 10, 1.5);
+  graphics.fillCircle(22, 14, 1);
+  graphics.fillCircle(14, 22, 1.2);
+};
+
 const drawNpcTile = (graphics: Phaser.GameObjects.Graphics) => {
   graphics.fillStyle(0x5f8fb4, 0.22);
   graphics.fillEllipse(16, 24, 18, 8);
@@ -268,6 +288,7 @@ export class PreloadScene extends Phaser.Scene {
     addTileTexture(this, 'tile-flag', drawFlagTile);
     addTileTexture(this, 'tile-dungeon', drawDungeonTile);
     addTileTexture(this, 'tile-npc', drawNpcTile);
+    addTileTexture(this, 'tile-portal', drawPortalTile);
     addTileTexture(this, 'player-cursor', drawPlayerTexture);
   }
 

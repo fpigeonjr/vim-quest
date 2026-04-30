@@ -16,6 +16,8 @@ import {
   SHRINES,
   TILE_IDS,
   TilemapData,
+  ZONE2_GATE_WALLS,
+  ZONE2_PORTAL_POSITION,
 } from '../systems/tilemap';
 import { isSlashModalOpen, registerGlobalSlashPrompt } from '../systems/slashCommands';
 import { GameState, REGISTRY_KEYS, VimMode, saveState, clearSavedState } from '../game/state';
@@ -86,6 +88,11 @@ export class WorldScene extends Phaser.Scene {
   private enteringDungeon = false;
   private dungeonEntranceLockedUntilExitTile = false;
 
+  // Zone 2 portal glow + transition guard
+  private portalGlow!: Phaser.GameObjects.Rectangle;
+  private enteringZone2 = false;
+  private zone2PortalLockedUntilExitTile = false;
+
   constructor() {
     super('world');
   }
@@ -95,11 +102,15 @@ export class WorldScene extends Phaser.Scene {
     this.dialogueBox = undefined;
     this.enteringDungeon = false;
     this.dungeonEntranceLockedUntilExitTile = false;
+    this.enteringZone2 = false;
+    this.zone2PortalLockedUntilExitTile = false;
 
     // When this scene wakes after dungeon exit, reset transition guard
     this.events.on('wake', () => {
       this.enteringDungeon = false;
       this.dungeonEntranceLockedUntilExitTile = true;
+      this.enteringZone2 = false;
+      this.zone2PortalLockedUntilExitTile = true;
       // Fade back in
       this.cameras.main.fadeIn(350, 0, 0, 0);
     });
@@ -110,6 +121,7 @@ export class WorldScene extends Phaser.Scene {
     this.createNPC();
     this.createConsoleBeacon();
     this.createDungeonEntrance();
+    this.createZone2Portal();
     this.createInput();
 
     const state = this.getState();
@@ -141,6 +153,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.handleMovement();
     this.checkDungeonEntrance();
+    this.checkZone2Entrance();
     this.checkNPCProximity();
     this.checkConsoleProximity();
   }
@@ -194,6 +207,15 @@ export class WorldScene extends Phaser.Scene {
       stroke: '#6f5933',
       strokeThickness: 4,
     });
+
+    // Zone 2 portal label (shown when portal is open)
+    this.add.text(ZONE2_PORTAL_POSITION.x * TILE_SIZE, (ZONE2_PORTAL_POSITION.y - 1) * TILE_SIZE, '→ Word Woods', {
+      fontFamily: 'Courier New',
+      fontSize: '13px',
+      color: '#c8c9ff',
+      backgroundColor: '#3a3866',
+      padding: { x: 6, y: 3 },
+    }).setOrigin(0.5, 1);
 
     const { width, height } = this.tilemapData;
     this.physics.world.setBounds(0, 0, width * TILE_SIZE, height * TILE_SIZE);
@@ -385,6 +407,68 @@ export class WorldScene extends Phaser.Scene {
       this.scene.sleep('world');
       this.scene.launch('dungeon');
     });
+  }
+
+  // ─── Zone 2 portal ────────────────────────────────────────────────────────
+
+  private createZone2Portal() {
+    const px = ZONE2_PORTAL_POSITION.x * TILE_SIZE + TILE_SIZE / 2;
+    const py = ZONE2_PORTAL_POSITION.y * TILE_SIZE + TILE_SIZE / 2;
+
+    this.portalGlow = this.add.rectangle(px, py, TILE_SIZE + 10, TILE_SIZE + 10, 0x8a87e8, 0.35).setDepth(1);
+
+    this.tweens.add({
+      targets: this.portalGlow,
+      alpha: 0.6,
+      scaleX: 1.12,
+      scaleY: 1.12,
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Hide glow until portal is open
+    const state = this.getState();
+    this.portalGlow.setVisible(state.level1Complete);
+  }
+
+  private checkZone2Entrance() {
+    if (this.enteringZone2) return;
+    const state = this.getState();
+    if (!state.level1Complete) return;
+
+    const tile = getTileAt(this.tilemapData, this.player.x, this.player.y);
+    const onPortalTile = tile.x === ZONE2_PORTAL_POSITION.x && tile.y === ZONE2_PORTAL_POSITION.y;
+
+    if (this.zone2PortalLockedUntilExitTile) {
+      if (!onPortalTile) {
+        this.zone2PortalLockedUntilExitTile = false;
+      }
+      return;
+    }
+
+    if (onPortalTile) {
+      this.enterZone2();
+    }
+  }
+
+  private enterZone2() {
+    this.enteringZone2 = true;
+    this.player.setVelocity(0, 0);
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.stop('world');
+      this.scene.start('zone2');
+    });
+  }
+
+  private openZone2Portal() {
+    for (const { x, y } of ZONE2_GATE_WALLS) {
+      setTileAt(this.tilemapData, x, y, TILE_IDS.path);
+    }
+    this.portalGlow.setVisible(true);
+    this.showToast('A portal to the Word Woods has opened to the east!');
   }
 
   // ─── Dialogue box ─────────────────────────────────────────────────────────
@@ -599,6 +683,10 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
+    if (state.level1Complete) {
+      this.openZone2Portal();
+    }
+
     const unlocked = new Set(state.unlockedCommands);
     for (const shrine of SHRINES) {
       if (shrine.unlock.length > 0 && shrine.unlock.every((c) => unlocked.has(c))) {
@@ -741,6 +829,16 @@ export class WorldScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(51);
 
+    this.add
+      .text(cx, cy + 82, 'A portal to the Word Woods has opened to the east!', {
+        fontFamily: 'Courier New',
+        fontSize: '13px',
+        color: '#a5a2f0',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(51);
+
     this.tweens.add({
       targets: overlay,
       scaleX: 1.02,
@@ -750,6 +848,9 @@ export class WorldScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+
+    // Open the path to Zone 2
+    this.openZone2Portal();
   }
 
   private spawnConfetti() {

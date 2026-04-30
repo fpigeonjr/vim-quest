@@ -15,6 +15,7 @@ export const TILE_IDS = {
   flag: 9,
   dungeon: 10, // dungeon entrance portal
   npc: 11, // NPC mentor tile (visual only — not blocked)
+  zone2Portal: 12, // portal to Word Woods (Zone 2)
 } as const;
 
 export type TileId = (typeof TILE_IDS)[keyof typeof TILE_IDS];
@@ -33,6 +34,7 @@ export const tileTextureMap: Record<number, string> = {
   [TILE_IDS.flag]: 'tile-flag',
   [TILE_IDS.dungeon]: 'tile-dungeon',
   [TILE_IDS.npc]: 'tile-npc',
+  [TILE_IDS.zone2Portal]: 'tile-portal',
 };
 
 // Tiles that block player movement
@@ -79,6 +81,14 @@ export const DUNGEON_ENTRANCE_POSITION = { x: 4, y: 4 };
 
 // NPC Mentor — stands near spawn on the path, 1 tile east of player start
 export const NPC_MENTOR_POSITION = { x: 6, y: 6 };
+
+// Zone 2 portal — placed east of the Level 1 flag enclosure.
+// A wall blocks the path until Level 1 is complete.
+export const ZONE2_PORTAL_POSITION = { x: 33, y: 6 };
+export const ZONE2_GATE_WALLS = [
+  { x: 31, y: 6 }, // enclosure wall that opens on Level 1 completion
+  { x: 32, y: 6 }, // blocking wall between enclosure and portal
+];
 
 // The gate shrine tile and the full vertical wall that physically blocks
 // passage east of x=41 until all crates are destroyed.
@@ -298,6 +308,12 @@ function generateOverworldData(width: number, height: number): number[][] {
 
   // Dungeon entrance portal — on the open grass north of spawn
   data[DUNGEON_ENTRANCE_POSITION.y][DUNGEON_ENTRANCE_POSITION.x] = TILE_IDS.dungeon;
+
+  // Zone 2 portal — east of the flag enclosure, initially blocked
+  data[ZONE2_PORTAL_POSITION.y][ZONE2_PORTAL_POSITION.x] = TILE_IDS.zone2Portal;
+  for (const { x, y } of ZONE2_GATE_WALLS) {
+    data[y][x] = TILE_IDS.wall;
+  }
 
   return data;
 }

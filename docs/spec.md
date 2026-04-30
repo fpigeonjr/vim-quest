@@ -399,7 +399,8 @@ The vertical slice is the most important milestone. It should prove the game is 
 
 ### In Progress
 
-- Zone 2 polish: NPC dialogue, natural entrance from Level 1, E/FG regions
+- Region E precision terrace puzzles
+- Region FG lexeme shrine mastery gate
 - Zone 3+ planning
 
 ### Not Done
@@ -419,8 +420,8 @@ The vertical slice is the most important milestone. It should prove the game is 
 6. ~~Port the first set of commands into the new architecture~~ ✅
 7. ~~Build the first tutorial region and one dungeon~~ ✅
 8. ~~Build Zone 2 word-jump mechanics~~ ✅
-9. Add natural Zone 2 entrance from Level 1 completion
-10. Add Zone 2 NPC mentor and dialogue beats
+9. ~~Add natural Zone 2 entrance from Level 1 completion~~ ✅
+10. ~~Add Zone 2 NPC mentor and dialogue beats~~ ✅
 11. Build Region E precision terrace puzzles
 12. Build Region FG lexeme shrine mastery gate
 
@@ -461,8 +462,8 @@ The vertical slice is the most important milestone. It should prove the game is 
 - [x] Hazard system (dead branches, overshoot loops, reset rails)
 - [x] e-shrine unlock at Echo Arbor
 - [x] Automated playthrough validation
-- [ ] Natural entrance from Level 1 (currently slash-only)
-- [ ] NPC mentor dialogue in arrival clearing
+- [x] Natural entrance from Level 1 — portal east of flag enclosure opens on completion
+- [x] Arrival dialogue — two-page Word Woods Guide on first visit
 - [ ] Region E precision terrace puzzles
 - [ ] Region FG lexeme shrine mastery gate
 
@@ -472,5 +473,5 @@ The vertical slice is the most important milestone. It should prove the game is 
 - [x] Hint system (HUD hint text)
 - [x] Command feedback (toast messages, locked command warnings)
 - [x] Reset/retry flow (hazard checkpoint respawn)
-- [ ] Better onboarding for Zone 2
-- [ ] Zone 2 dialogue and teaching beats
+- [x] Better onboarding for Zone 2 — arrival dialogue + portal toast
+- [x] Zone 2 dialogue and teaching beats — Word Woods Guide explains w/b/e trials

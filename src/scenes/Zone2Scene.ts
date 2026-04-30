@@ -10,6 +10,33 @@ type Zone2Tile = (typeof TILE_IDS)[keyof typeof TILE_IDS];
 
 const MAP_BG = '#3e5f3f';
 
+const ARRIVAL_DIALOGUE: string[][] = [
+  [
+    'Welcome to the Word Woods, traveller.',
+    '',
+    'Here, the ground itself is made of words.',
+    'Walk the word-lanes and leap from stone to stone.',
+    '',
+    'Use  w  to jump forward to the next word.',
+    'Use  b  to step back to the previous one.',
+    '',
+    'Clear the marker pads ahead to open the branching paths.',
+    '',
+    '[Press Space or Enter to continue]',
+  ],
+  [
+    'The Word Woods have three trials for you:',
+    '',
+    '  1. Tutorial Lane — practise w and b on marker pads.',
+    '  2. North Canopy & Root Backtrack — collect both branch tokens.',
+    '  3. Echo Arbor — unlock the e command and reach the shrine.',
+    '',
+    'When you are ready, step onto the first word-lane.',
+    '',
+    '[Press Space or Enter to close]',
+  ],
+];
+
 export class Zone2Scene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private cursors!: { [key: string]: Phaser.Input.Keyboard.Key };
@@ -24,11 +51,22 @@ export class Zone2Scene extends Phaser.Scene {
   private isJumping = false;
   private eShrineActivated = false;
 
+  // Dialogue state
+  private dialogueBox?: Phaser.GameObjects.Container;
+  private dialogueActive = false;
+  private introOverlayActive = false;
+  private arrivalDialogueIndex = 0;
+
   constructor() {
     super('zone2');
   }
 
   create() {
+    this.dialogueActive = false;
+    this.dialogueBox = undefined;
+    this.introOverlayActive = false;
+    this.arrivalDialogueIndex = 0;
+
     this.cameras.main.setBackgroundColor(MAP_BG);
     this.buildZone2Map();
     this.createPlayer();
@@ -38,14 +76,24 @@ export class Zone2Scene extends Phaser.Scene {
     this.renderInteractiveElements();
     this.renderWordLaneMarkers();
 
+    const state = this.getState();
     this.syncState({
       mode: 'normal',
       areaName: 'Word Woods',
-      hint: 'Zone 2 preview active. Move with h j k l. Press / and run /level-1 to return.',
+      hint: 'Use w and b to leap along the word-lanes. Clear marker pads to open paths.',
     });
+
+    if (!state.zone2Entered) {
+      this.syncState({ zone2Entered: true });
+      this.showArrivalDialogue();
+    }
   }
 
   update() {
+    if (this.dialogueActive || this.introOverlayActive) {
+      this.player.setVelocity(0, 0);
+      return;
+    }
     if (this.isJumping) {
       this.player.setVelocity(0, 0);
       return;
@@ -187,12 +235,30 @@ export class Zone2Scene extends Phaser.Scene {
     });
     this.input.keyboard?.on('keydown-ESC', () => {
       if (isSlashModalOpen(this)) return;
+      if (this.introOverlayActive || this.dialogueActive) {
+        this.closeDialogue();
+        return;
+      }
       this.syncState({
         mode: 'normal',
         areaName: 'Cursor Meadow',
-        hint: 'Exited Zone 2 preview. Back in Cursor Meadow.',
+        hint: 'Returned to Cursor Meadow from the Word Woods.',
       });
       this.scene.start('world');
+    });
+    this.input.keyboard?.on('keydown-SPACE', () => {
+      if (isSlashModalOpen(this)) return;
+      if (this.introOverlayActive || this.dialogueActive) {
+        this.advanceArrivalDialogue();
+        return;
+      }
+    });
+    this.input.keyboard?.on('keydown-ENTER', () => {
+      if (isSlashModalOpen(this)) return;
+      if (this.introOverlayActive || this.dialogueActive) {
+        this.advanceArrivalDialogue();
+        return;
+      }
     });
 
     registerGlobalSlashPrompt(this);
@@ -243,7 +309,7 @@ export class Zone2Scene extends Phaser.Scene {
       .text(
         GAME_WIDTH / 2,
         8,
-        'Word Woods (Zone 2) Preview  ·  Move: h j k l  ·  Slash commands: /level-1, /level-2, /dungeon',
+        'Word Woods (Zone 2)  ·  Move: h j k l  ·  Word jumps: w b e  ·  Anchor: 0 $  ·  Slash: /help',
         {
           fontFamily: 'Courier New',
           fontSize: '13px',
@@ -922,5 +988,84 @@ export class Zone2Scene extends Phaser.Scene {
     });
     
     particles.explode();
+  }
+
+  // ─── Arrival dialogue ─────────────────────────────────────────────────────
+
+  private showArrivalDialogue() {
+    this.dialogueActive = true;
+    this.introOverlayActive = true;
+    const lines = ARRIVAL_DIALOGUE[this.arrivalDialogueIndex] ?? ARRIVAL_DIALOGUE[0];
+    this.showDialogue('Word Woods Guide', lines);
+  }
+
+  private advanceArrivalDialogue() {
+    this.arrivalDialogueIndex++;
+    if (this.arrivalDialogueIndex >= ARRIVAL_DIALOGUE.length) {
+      this.closeDialogue();
+      return;
+    }
+    this.closeDialogue();
+    this.showArrivalDialogue();
+  }
+
+  private showDialogue(speaker: string, lines: string[]) {
+    this.dialogueActive = true;
+    this.introOverlayActive = true;
+
+    const boxW = 700;
+    const boxH = 240;
+
+    const camX = this.cameras.main.scrollX;
+    const camY = this.cameras.main.scrollY;
+    const zoom = this.cameras.main.zoom;
+    const viewW = this.cameras.main.width / zoom;
+    const viewH = this.cameras.main.height / zoom;
+
+    const boxX = camX + (viewW - boxW) / 2;
+    const boxY = camY + viewH - boxH - 20;
+
+    const container = this.add.container(0, 0).setDepth(50);
+
+    const bg = this.add
+      .rectangle(boxX + boxW / 2, boxY + boxH / 2, boxW, boxH, 0xf4efe2, 0.97)
+      .setStrokeStyle(3, 0xd2c8b1, 1);
+    container.add(bg);
+
+    const speakerText = this.add.text(boxX + 16, boxY + 12, `[ ${speaker} ]`, {
+      fontFamily: 'Palatino Linotype',
+      fontSize: '15px',
+      color: '#6b5338',
+      fontStyle: 'bold',
+    });
+    container.add(speakerText);
+
+    const bodyText = this.add.text(boxX + 16, boxY + 36, lines.join('\n'), {
+      fontFamily: 'Courier New',
+      fontSize: '13px',
+      color: '#4b4238',
+      lineSpacing: 3,
+      wordWrap: { width: boxW - 32 },
+    });
+    container.add(bodyText);
+
+    this.dialogueBox = container;
+
+    this.tweens.add({
+      targets: bg,
+      strokeAlpha: 0.3,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  private closeDialogue() {
+    this.dialogueActive = false;
+    this.introOverlayActive = false;
+    if (this.dialogueBox) {
+      this.dialogueBox.destroy();
+      this.dialogueBox = undefined;
+    }
   }
 }

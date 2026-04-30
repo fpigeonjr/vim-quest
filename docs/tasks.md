@@ -24,11 +24,12 @@ Use this file as the lightweight execution checklist derived from `docs/spec.md`
 - [x] Zone 2 e-shrine unlock — e command unlocked at Echo Arbor (68,28)
 - [x] Zone 2 anchor snaps — 0/$ snap to lane start/end
 - [x] Zone 2 automated playthrough script (27-step validation)
+- [x] Natural Zone 2 entrance from Level 1 completion — portal east of flag enclosure
+- [x] Zone 2 arrival dialogue — two-page Word Woods Guide on first visit
+- [x] Portal flow automated test (9-step validation)
 
 ## Ready Next
 
-- [ ] Natural Zone 2 entrance from Level 1 completion (not just slash command)
-- [ ] Add NPC mentor dialogue in Zone 2 arrival clearing
 - [ ] Region E precision terrace puzzles — mixed w/b/e with 0/$ reset rails
 - [ ] Region FG lexeme shrine — final mastery gate before returning to hub
 - [ ] Add enemies/pressure encounters to Word Woods

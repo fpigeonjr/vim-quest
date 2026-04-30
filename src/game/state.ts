@@ -15,6 +15,7 @@ export type GameState = {
   introSeen: boolean;
   audioMuted: boolean;
   // Zone 2 tracking
+  zone2Entered: boolean;
   zone2TutorialPadsCleared: number;
   hasCanopyToken: boolean;
   hasRootToken: boolean;
@@ -36,6 +37,7 @@ export const defaultGameState = (): GameState => ({
   introSeen: false,
   audioMuted: false,
   // Zone 2 defaults
+  zone2Entered: false,
   zone2TutorialPadsCleared: 0,
   hasCanopyToken: false,
   hasRootToken: false,
